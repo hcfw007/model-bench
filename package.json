@@ -1,5 +1,6 @@
 {
   "name": "model-bench",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "description": "私人基准：基于真实 opencode 使用数据反向设计的模型/harness 测试集",

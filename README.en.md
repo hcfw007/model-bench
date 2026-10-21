@@ -95,6 +95,17 @@ fixtures/               synthetic logs, mongo documents, case trees
 reports/                conclusion documents (run baselines are gitignored and regenerable)
 ```
 
+## Rankings
+
+Historical results live in [`rankings/`](rankings/). Case sets and weights differ between
+versions, so scores are not directly comparable.
+
+| Version | Cases | Models | Released | Ranking |
+|---|---|---|---|---|
+| v1.0 | 31 | 2 | 2026-10-22 | [View](rankings/v1.0.md) |
+
+Current config version: `v1.0.0` (`bench.version` in `bench.config.jsonc`).
+
 ## Running it
 
 ```bash
