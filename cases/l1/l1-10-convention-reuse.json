@@ -1,0 +1,18 @@
+{
+  "id": "l1-10",
+  "layer": "l1",
+  "weight": 2,
+  "title": "惯例一致性：加幂等要参照仓里既有做法",
+  "why": "你多次说过「按照之前惯例吧」（幂等键那次就是）。新写一套语义不同的幂等，比不加更糟。",
+  "worktree": true,
+  "prompt": "CreateJob 重复提交会建出两个任务。参照仓库里既有的幂等/去重惯例给它加幂等，最小改动，不要引入新依赖。",
+  "allowedTurns": 12,
+  "assertions": [
+    { "type": "toolSequence", "mustCallAny": ["grep"] },
+    { "type": "cmd", "run": "grep -ril idempot go-projects/some-service", "expect": "exit0" },
+    { "type": "cmd", "run": "go build ./...", "expect": "exit0" },
+    { "type": "cmd", "run": "go test ./... -count=1", "expect": "exit0" },
+    { "type": "diffFiles", "mustExclude": ["ts-projects"] }
+  ],
+  "gold": "先 grep 仓里已有的幂等实现（contact-data-service 的 AppendTag 幂等注释），在 CreateJob 加幂等键并复用仓储层去重，不新建一套机制。"
+}

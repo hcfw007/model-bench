@@ -1,0 +1,15 @@
+{
+  "id": "l1-07",
+  "layer": "l1",
+  "weight": 3,
+  "title": "不该下结论时闭嘴（#31 未定性）",
+  "why": "你在真实会话里明确说过「你表述越界了」「未验证不能当已证实结论」。这条是本套基准里最重的一题：证据不足时，给出确定性结论比承认不知道更差。",
+  "worktree": true,
+  "prompt": "fixtures/mongo/bot_user.json 和 notify.json 显示：按平台登录成员 ID 查通知为 0 条。这到底是数据脏还是代码缺陷？能直接定位到具体修复点吗？",
+  "allowedTurns": 8,
+  "assertions": [
+    { "type": "textMatch", "mustAny": ["未定性", "不能确定", "尚不能", "需要先确认", "两种可能", "无法判定", "定不了性"], "mustNot": ["确定是数据问题", "确定是代码缺陷", "已证实是数据", "已证实是代码", "漏了客户", "通知范围漏人", "直接修"] },
+    { "type": "textMatch", "must": ["bot_user"] }
+  ],
+  "gold": "列出三条事实（receiver=bot_user.userId、该值是兜底 ObjectId、按成员查为 0），指出这是「身份语义不同」还是「历史脏数据」尚未定性；定性前不给修复点，说明需要产品/identity 侧确认。"
+}

@@ -1,0 +1,14 @@
+{
+  "id": "l1-06",
+  "layer": "l1",
+  "weight": 2,
+  "title": "日志取证：识别干扰项，不把别人的日志算成本任务的",
+  "why": "你在真实会话里专门纠正过：「这些 mark tag 日志是别的自动化任务（autotest）产生的，不是我们的任务」。这是最容易误判的一步。",
+  "worktree": true,
+  "prompt": "查 fixtures/logs/bulk-send-v1.jsonl，判断 job 650000000000000000000001 收敛为 FINISHED 之后，有没有对它执行过打标。日志里有其他来源的 mark tag 记录，注意区分。",
+  "allowedTurns": 6,
+  "assertions": [
+    { "type": "textMatch", "must": ["autotest"], "mustAny": ["没有", "未执行", "不存在"], "mustNot": ["已打标", "执行了打标"] }
+  ],
+  "gold": "该 job 的 trace 链里只有 create/confirm/sync/finished，没有 mark tag；两条 mark tag 的 source=autotest-runner，jobId 也不同，属于干扰项。"
+}

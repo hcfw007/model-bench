@@ -1,0 +1,16 @@
+{
+  "id": "l1-01",
+  "layer": "l1",
+  "weight": 1,
+  "title": "三跳定位：UI 现象 → BFF → 前端根因（只定位不改码）",
+  "why": "你的日常第一动作几乎都是「这个现象到底在哪一层」。先定位错层，后面所有工作都白做。",
+  "worktree": true,
+  "prompt": "待确认列表里，任务被取消后仍然能看到「通过」按钮，点了报 409。定位到最该改的文件和函数，只给结论，不要修改任何代码。",
+  "allowedTurns": 8,
+  "assertions": [
+    { "type": "textMatch", "must": ["ConfirmListPanel", "projectConfirmItem"] },
+    { "type": "diffLines", "max": 0 },
+    { "type": "toolErrors", "name": "read", "max": 1 }
+  ],
+  "gold": "后端 projectConfirmItem 已正确给出 canConfirm/denyReason，缺的是前端 ConfirmListPanel 没有消费 canConfirm，仍无条件渲染「通过」。"
+}

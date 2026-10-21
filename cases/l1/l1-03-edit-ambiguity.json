@@ -1,0 +1,17 @@
+{
+  "id": "l1-03",
+  "layer": "l1",
+  "weight": 2,
+  "title": "编辑陷阱：同构文件里改对那一个",
+  "why": "你有 198 次编辑类错误，其中 146 次是 oldString 没命中、只有 9 次是不唯一。真实主因是凭记忆写原文。这个 case 用两个几乎同构的文件，同时考「改对哪一个」和「编辑前重新读」。",
+  "worktree": true,
+  "prompt": "把群聊待确认列表（不是私聊那个）里「通过」按钮的文案改成「确认发送」。两个列表面板结构几乎一样，注意别改错文件。",
+  "allowedTurns": 8,
+  "assertions": [
+    { "type": "fileContains", "path": "ts-projects/web-console/src/Pages/Broadcast/BulkSendV1/Components/RoomConfirmListPanel.tsx", "pattern": "确认发送" },
+    { "type": "fileNotContains", "path": "ts-projects/web-console/src/Pages/Broadcast/BulkSendV1/Components/ConfirmListPanel.tsx", "pattern": "确认发送" },
+    { "type": "toolErrors", "name": "edit", "max": 1 },
+    { "type": "diffFiles", "mustExclude": ["ConfirmListPanel.tsx"] }
+  ],
+  "gold": "先区分两个文件，改 RoomConfirmListPanel.tsx 的按钮文案；若 edit 报「多处匹配」，加更多上下文而不是重试同一段。"
+}
