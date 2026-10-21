@@ -135,6 +135,6 @@
 ## 建议的落地方式
 
 1. P-01、P-02、P-03、P-09 直接进 `~/.config/opencode/AGENTS.md`（全局，所有项目受益）。
-2. P-04、P-05、P-06、P-07 进对应的 skill（task-release / task-test / xiaochang-review）。
+2. P-04、P-05、P-06、P-07 进对应的 skill（task-release / task-test / review-loop）。
 3. P-11 进工匠 agent 的 prompt 前置约束。
 4. 每次改完规则，用 `node runners/run-bench.ts --layers <layer> --cases <相关case>` 回归一次。

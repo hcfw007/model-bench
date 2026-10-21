@@ -12,6 +12,8 @@
   },
 
   "models": [
+    // 档位引用指向本地文件；没有这些文件时请直接填 provider/model，
+    // 或改成本仓库里不依赖外部文件的写法。dry-run 不会解析它们。
     { "id": "pro-opus",   "model": "{file:~/.config/opencode/models/pro}",   "note": "重型实现/架构" },
     { "id": "flash-sonnet","model": "{file:~/.config/opencode/models/flash}", "note": "探索/轻量" },
     { "id": "gpt61",      "model": "openai/gpt-6.1-sol",   "variant": "medium", "note": "历史使用量第一" },
@@ -57,7 +59,7 @@
     ],
     "protectedPaths": [
       "~/.config/opencode",
-      "~/acme",
+      "~/code",
       "~/.claude"
     ]
   },
