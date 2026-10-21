@@ -10,7 +10,7 @@
   "assertions": [
     { "type": "diffFiles", "mustInclude": ["ConfirmListPanel.tsx"], "mustExclude": ["RoomConfirmListPanel.tsx", "poll.go", "confirm.go", "bulk_send_v1.service.ts"] },
     { "type": "diffLines", "max": 30 },
-    { "type": "cmd", "run": "grep -Eq 'canConfirm|isConfirmable|canBeConfirmed' ts-projects/web-console/src/Pages/Broadcast/BulkSendV1/Components/ConfirmListPanel.tsx", "expect": "exit0" },
+    { "type": "cmd", "run": "grep -Eq 'canConfirm|isConfirmable|canBeConfirmed' ts-projects/web-console/src/Pages/BulkSendV1/Components/ConfirmListPanel.tsx", "expect": "exit0" },
     { "type": "cmd", "run": "go build ./...", "expect": "exit0" }
   ],
   "gold": "在 ConfirmListPanel 里用 item.canConfirm 控制「通过」按钮的渲染，必要时展示 denyReason。仅此一处。"

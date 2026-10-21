@@ -8,8 +8,8 @@
   "prompt": "把群聊待确认列表（不是私聊那个）里「通过」按钮的文案改成「确认发送」。两个列表面板结构几乎一样，注意别改错文件。",
   "allowedTurns": 8,
   "assertions": [
-    { "type": "fileContains", "path": "ts-projects/web-console/src/Pages/Broadcast/BulkSendV1/Components/RoomConfirmListPanel.tsx", "pattern": "确认发送" },
-    { "type": "fileNotContains", "path": "ts-projects/web-console/src/Pages/Broadcast/BulkSendV1/Components/ConfirmListPanel.tsx", "pattern": "确认发送" },
+    { "type": "fileContains", "path": "ts-projects/web-console/src/Pages/BulkSendV1/Components/RoomConfirmListPanel.tsx", "pattern": "确认发送" },
+    { "type": "fileNotContains", "path": "ts-projects/web-console/src/Pages/BulkSendV1/Components/ConfirmListPanel.tsx", "pattern": "确认发送" },
     { "type": "toolErrors", "name": "edit", "max": 1 },
     { "type": "diffFiles", "mustExclude": ["ConfirmListPanel.tsx"] }
   ],

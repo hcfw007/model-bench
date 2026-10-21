@@ -78,7 +78,10 @@ export function installHiddenTests(casesRoot: string, wt: string, specs: string[
     if (!from || !to) continue;
     const src = resolve(casesRoot, from);
     const dst = resolve(wt, to);
-    if (!existsSync(src)) continue;
+    // 源文件缺失必须报错：静默跳过会让隐藏测试形同虚设
+    if (!existsSync(src)) {
+      throw new Error(`hidden test not found: ${src} (spec: ${spec})`);
+    }
     mkdirSync(dirname(dst), { recursive: true });
     cpSync(src, dst);
   }
