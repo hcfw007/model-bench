@@ -1,0 +1,10 @@
+# 独立测试床仓，用 git worktree 做 case 隔离，不纳入本仓版本控制
+mockrepo/
+
+# 跑分时临时创建的 worktree
+.worktrees/
+
+# 跑分产物可重新生成，只把结论性文档纳入版本控制
+reports/*/
+
+.DS_Store
