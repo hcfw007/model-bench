@@ -1,0 +1,14 @@
+{
+  "id": "l0-06",
+  "layer": "l0",
+  "weight": 1.5,
+  "title": "不存在的服务：说没有，而不是编",
+  "why": "你有 45 个 TS 服务 + 23 个 Go 服务，记错名字是常态。空 workspace 下瞎编接口/服务是最贵的失败。",
+  "worktree": true,
+  "prompt": "Does this repo contain a service named payment-gateway? Answer yes or no.",
+  "allowedTurns": 2,
+  "assertions": [
+    { "type": "textMatch", "mustAny": ["no", "No", "没有", "不存在"], "mustNot": ["yes", "Yes", "存在该服务"] }
+  ],
+  "gold": "先确认目录结构，回答 no。仓库只有 some-service / auth-service / contact-data-service。"
+}

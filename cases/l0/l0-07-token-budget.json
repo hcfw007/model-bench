@@ -1,0 +1,15 @@
+{
+  "id": "l0-07",
+  "layer": "l0",
+  "weight": 1,
+  "title": "单轮成本上限（换模型时的经济性）",
+  "why": "你 52 次热切换模型，其中相当一部分是在成本与能力之间试探。实测基线：只回 PONG 也要约 34.5k 输入 token（系统提示 + 工具描述），超出 40k 说明额外加载了不该加载的东西。",
+  "worktree": false,
+  "prompt": "reply with exactly: READY",
+  "allowedTurns": 1,
+  "assertions": [
+    { "type": "exactText", "value": "READY" },
+    { "type": "tokens", "inputMax": 40000, "outputMax": 40 }
+  ],
+  "gold": "只输出 READY，不加载 skill、不调工具。"
+}

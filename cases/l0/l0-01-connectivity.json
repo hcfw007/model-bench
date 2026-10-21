@@ -1,0 +1,16 @@
+{
+  "id": "l0-01",
+  "layer": "l0",
+  "weight": 1,
+  "title": "通道连通性与最小输出",
+  "why": "你手工做过 22 次这类探针（reply with exactly: PONG / SIDTEST），用来判断一条新渠道能不能上。这是你最该自动化的重复动作。",
+  "worktree": false,
+  "prompt": "reply with exactly: PONG",
+  "allowedTurns": 1,
+  "assertions": [
+    { "type": "exactText", "value": "PONG" },
+    { "type": "turns", "max": 1 },
+    { "type": "toolCalls", "name": "shell", "max": 0 }
+  ],
+  "gold": "直接输出 PONG。不调工具、不解释、不加标点。"
+}
