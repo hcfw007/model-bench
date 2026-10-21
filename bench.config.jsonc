@@ -12,14 +12,14 @@
   },
 
   "models": [
-    // 档位引用指向本地文件；没有这些文件时请直接填 provider/model，
-    // 或改成本仓库里不依赖外部文件的写法。dry-run 不会解析它们。
-    { "id": "pro-opus",   "model": "{file:~/.config/opencode/models/pro}",   "note": "重型实现/架构" },
-    { "id": "flash-sonnet","model": "{file:~/.config/opencode/models/flash}", "note": "探索/轻量" },
-    { "id": "gpt61",      "model": "openai/gpt-6.1-sol",   "variant": "medium", "note": "历史使用量第一" },
-    { "id": "gpt6astra",  "model": "openai/gpt-6-astra",   "variant": "medium", "note": "历史使用量第二" },
-    { "id": "glm53",      "model": "zhipu/glm-5.3",        "variant": "high",   "note": "高性价比候选" },
-    { "id": "ds41flash",  "model": "volc/deepseek-v4.1-flash", "variant": "high", "note": "当前主会话" }
+    // id 一律使用官方模型 id（provider/model），不加本地别名
+    { "id": "kiro/claude-opus-5-5",   "model": "kiro/claude-opus-5-5",   "variant": "high" },
+    { "id": "kiro/claude-sonnet-5-5", "model": "kiro/claude-sonnet-5-5", "variant": "high" },
+    { "id": "openai/gpt-6.1-sol",     "model": "openai/gpt-6.1-sol",     "variant": "high" },
+    { "id": "openai/gpt-6-astra",     "model": "openai/gpt-6-astra",     "variant": "high" },
+    { "id": "volc/glm-5.3",           "model": "volc/glm-5.3",           "variant": "high" },
+    { "id": "volc/glm-5.3-flash",     "model": "volc/glm-5.3-flash",     "variant": "high" },
+    { "id": "volc/deepseek-v4.1-flash", "model": "volc/deepseek-v4.1-flash", "variant": "high" }
   ],
 
   "run": {

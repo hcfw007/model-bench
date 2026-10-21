@@ -8,8 +8,27 @@
   "prompt": "fixtures/mongo/contact_data.json 是测试号在任务 FINISHED 后的客户档案，tags 为空。判断自动标签功能到底实现了没有，并给出代码层证据。",
   "allowedTurns": 8,
   "assertions": [
-    { "type": "textMatch", "must": ["MarkTag", "poll.go"], "mustAny": ["未实现", "没有调用", "没有执行", "缺失"], "mustNot": ["已实现", "会自动打标"] },
-    { "type": "toolSequence", "mustCallAny": ["grep"] }
+    {
+      "type": "textMatch",
+      "must": [
+        "MarkTag",
+        "poll.go"
+      ],
+      "mustAny": [
+        "未实现",
+        "没有调用",
+        "没有执行",
+        "缺失"
+      ],
+      "mustNot": [
+        "已实现",
+        "会自动打标"
+      ]
+    },
+    {
+      "type": "shellCommandMatches",
+      "pattern": "grep|rg "
+    }
   ],
   "gold": "全仓 grep MarkTag：只有 contact-data-service 的实现，some-service 的 bulk_send_v1 目录零调用；poll.go 收尾只改状态。结论：功能未实现，不是配置问题。"
 }

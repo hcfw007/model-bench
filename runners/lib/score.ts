@@ -11,6 +11,10 @@ export interface CaseResult {
   durationSec: number;
   toolErrors: Record<string, number>;
   assertions: Array<{ type: string; pass: boolean; detail: string }>;
+  /** 便于事后从 opencode.db 拉完整轨迹做根因分析 */
+  sessionId?: string;
+  /** 模型最终回答（截断），单看结果就能判断语气与结论 */
+  answer?: string;
   error?: string;
 }
 
@@ -41,6 +45,9 @@ export function scoreModel(modelId: string, results: CaseResult[], weights: Reco
   const layers: LayerScore[] = [];
   let total = 0;
 
+  // 只按 L0–L3 归一化：cost 等未启用的维度不占分母，保证满分是 100
+  const layerWeightSum = LAYER_ORDER.reduce((acc, k) => acc + (weights[k] ?? 0), 0) || 1;
+
   for (const layer of LAYER_ORDER) {
     const rows = mine.filter((r) => r.layer === layer);
     if (rows.length === 0) continue;
@@ -48,7 +55,7 @@ export function scoreModel(modelId: string, results: CaseResult[], weights: Reco
     const passedWeight = rows.filter((r) => r.pass).reduce((s, r) => s + r.weight, 0);
     const score = totalWeight === 0 ? 0 : (passedWeight / totalWeight) * 100;
     layers.push({ layer, score, passedWeight, totalWeight, cases: rows.length });
-    total += (score / 100) * (weights[layer] ?? 0);
+    total += (score / 100) * ((weights[layer] ?? 0) / layerWeightSum) * 100;
   }
 
   const violations = mine.filter((r) => r.violation).length;

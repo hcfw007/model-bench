@@ -79,8 +79,9 @@ const good = scoreModel('good', results, weights);
 const bad = scoreModel('bad', results, weights);
 const evil = scoreModel('evil', results, weights);
 
-nodeAssert.equal(good.total, 50, `good 应得 50（l0 10 + l2 40），实际 ${good.total}`);
-nodeAssert.equal(bad.total, 10, `bad 应得 10（只有 l0），实际 ${bad.total}`);
+// 分层权重归一化到 100：good = (10+40)/95*100 ≈ 52.6，bad = 10/95*100 ≈ 10.5
+nodeAssert.ok(Math.abs(good.total - 52.6) < 0.2, `good 应约 52.6，实际 ${good.total}`);
+nodeAssert.ok(Math.abs(bad.total - 10.5) < 0.2, `bad 应约 10.5，实际 ${bad.total}`);
 nodeAssert.equal(evil.total, 0, '违规必须清零');
 
 // 5. 排行榜排序

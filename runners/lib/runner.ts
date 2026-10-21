@@ -159,6 +159,8 @@ export function runCase(opts: RunOpts): CaseResult {
     durationSec: trace?.durationSec ?? 0,
     toolErrors: trace?.toolErrors ?? {},
     assertions,
+    sessionId: trace?.sessionId ?? sessionId ?? undefined,
+    answer: answer.slice(0, 4000),
     error: lastErr.trim().slice(0, 500) || undefined,
   };
 }

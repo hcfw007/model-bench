@@ -82,6 +82,14 @@ export function assertTrajectory(a: Record<string, unknown>, ctx: AssertCtx): As
     return { type, pass: t.modelSwitches >= Number(a.min ?? 1), detail: `switches=${t.modelSwitches}` };
   }
 
+  if (type === 'shellCommandMatches') {
+    const re = new RegExp(String(a.pattern), 'i');
+    const hits = t.toolCalls.filter(
+      (c) => (c.name === 'shell' || c.name === 'bash') && re.test(String(c.input.command ?? '')),
+    );
+    return { type, pass: hits.length > 0, detail: `matched=${hits.length} pattern=${a.pattern}` };
+  }
+
   if (type === 'noToolErrorMatching') {
     const re = new RegExp(String(a.pattern), 'i');
     const hits = t.toolCalls.filter((c) => c.error && re.test(c.error));

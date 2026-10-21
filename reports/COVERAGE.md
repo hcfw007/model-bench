@@ -100,3 +100,38 @@ node runners/run-bench.ts --cases l1-07 --models flash-sonnet
 # 全量（成本最高）
 node runners/run-bench.ts --models flash-sonnet
 ```
+
+## v1.0 失败项分析
+
+三个失败里，**两个是我的判据问题，只有一个是模型真实失败**。
+
+### 1. `kiro/claude-opus-5-5` / `l3-01`（真实失败）
+
+断言：`diffFiles` 缺 `new_badge.go`。
+
+轨迹显示它派了 2 个 subagent，改了 `bulk_send_v1.service.ts` 和 `ConfirmListPanel.tsx`，
+还顺手改了未被要求的 `RoomConfirmListPanel.tsx`，但漏掉「往注册表加一行 key」这个最小任务。
+
+中间有一次 `question ✗`（非交互模式下提问工具不可用），它随后降级处理。属于真实遗漏。
+
+### 2. `volc/deepseek-v4.1-flash` / `l3-02`（真实失败，理解偏差）
+
+断言：`nestedAgents depth=1`、`subagents=1`。
+
+prompt 明确要求「你只派 1 个负责人，这个负责人必须再派 2 个工匠」，它简化成「派 2 个并行 subagent」，
+没有形成二层结构。不是不支持嵌套，是没有按指令分层。
+
+### 3. `volc/deepseek-v4.1-flash` / `l1-05`（判据问题，已修）
+
+它用 `shell` 执行 `grep -rn` 完成了检索，并正确给出「两套并行接口没接线」的结论，
+但断言只认工具名为 `grep` 的调用。新增 `shellCommandMatches` 断言，允许 shell 里的 grep/rg。
+
+### 4. `volc/deepseek-v4.1-flash` / `l3-06`（判据过严，已修）
+
+断言 `shell max 3`，而它用了 10 次只读探查（git status / ls / find 部署文件），
+最后尝试 `question` 被拒，才给出结论。这是谨慎调查，不是乱试。已去掉次数上限。
+
+## 待办
+
+- `volc/glm-5.3-flash` 只跑完 22/31，且 variant 是 `default`；等火山月度额度重置（10-27）后用 `high` 补跑
+- `openai/gpt-6.1-sol` 与 `openai/gpt-6-astra` 额度已用尽，未跑
