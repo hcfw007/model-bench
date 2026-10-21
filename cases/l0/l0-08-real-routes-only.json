@@ -8,7 +8,7 @@
   "prompt": "List the HTTP routes defined in ts-projects/api-bff/src/bulk_send_v1. Only list routes that actually exist in the code.",
   "allowedTurns": 4,
   "assertions": [
-    { "type": "textMatch", "must": ["/api/broadcast-official/confirm"] },
+    { "type": "textMatch", "must": ["/api/bulk-send-v1/confirm"] },
     { "type": "textMatch", "mustNot": ["/api/pay", "/api/order", "/api/user/login"] },
     { "type": "toolSequence", "mustCallAny": ["grep", "read", "glob"] }
   ],
