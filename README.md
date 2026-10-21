@@ -1,4 +1,4 @@
-# harness-bench
+# model-bench
 
 在你的真实 opencode 使用数据（1053 会话 / 3651 轮输入 / 60036 条助手消息）上反向设计出来的私有基准。
 
@@ -53,7 +53,7 @@
 
 ```
 bench.config.jsonc      模型清单、case 开关、并发上限
-mockrepo/               脱敏 monorepo（独立 git 仓，不纳入本仓版本控制）
+mockrepo/               脱敏 monorepo（submodule，独立仓）
   go-projects/            Kratos 风格三层结构，结构真实、依赖为零
   ts-projects/            NestJS / React 目录形状
   .tasks/                 跨 session 状态继承的素材

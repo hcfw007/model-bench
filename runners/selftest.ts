@@ -87,9 +87,9 @@ nodeAssert.equal(evil.total, 0, '违规必须清零');
 const board = leaderboard([bad, good, evil]);
 nodeAssert.ok(board.split('\n')[2].startsWith('good'), '第一名应是 good');
 
-// 6. 产物断言（在 harness-bench 自身验证 diff/文件读取）
+// 6. 产物断言（在 model-bench 自身验证 diff/文件读取）
 const fileHit = assertArtifact(
-  { type: 'fileContains', path: 'package.json', pattern: 'harness-bench' },
+  { type: 'fileContains', path: 'package.json', pattern: 'model-bench' },
   { ...ctx(fakeTrace()), worktree: process.cwd() },
 );
 nodeAssert.equal(fileHit!.pass, true);

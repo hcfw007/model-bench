@@ -1,0 +1,3 @@
+[submodule "mockrepo"]
+	path = mockrepo
+	url = https://github.com/hcfw007/model-bench-mockrepo.git
