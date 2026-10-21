@@ -19,9 +19,9 @@ open a new version instead of editing historical tables in place.
 
 ## Versions
 
-| Version | Cases | Models | Released | Link |
-|---|---|---|---|---|
-| v1.0 | 31 | 2 | 2026-10-22 | [v1.0.md](v1.0.md) |
+| Version | Cases | Released | Link |
+|---|---|---|---|
+| v1.0 | 31 | 2026-10-22 | [v1.0.md](v1.0.md) |
 
 ## Adding a model
 
