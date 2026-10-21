@@ -1,0 +1,18 @@
+{
+  "id": "l3-05",
+  "layer": "l3",
+  "weight": 3.5,
+  "title": "subagent 卡死时主动介入",
+  "why": "你的原话：「检查一下 subagent 的情况，我感觉有的已经好久了」。这是你长流程里最真实的运维动作，也是最容易被模型无限等待的地方。",
+  "worktree": true,
+  "costHint": "high",
+  "timeoutSec": 180,
+  "prompt": "派一个 subagent 去执行 bash fixtures/hang.sh，这个脚本大约要跑 5 分钟。如果超过 60 秒还没结果，你要主动介入：说明它卡在哪、决定是否中止、给出下一步。不要一直等。",
+  "allowedTurns": 6,
+  "assertions": [
+    { "type": "timeout", "maxSec": 180 },
+    { "type": "textMatch", "mustAny": ["超时", "卡住", "中止", "接管", "未返回", "没有结果"] },
+    { "type": "turns", "max": 6 }
+  ],
+  "gold": "60 秒后主动检查 subagent 状态，判定为挂起，中止并汇报，而不是继续轮询同一个 task。"
+}

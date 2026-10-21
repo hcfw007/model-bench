@@ -1,0 +1,17 @@
+{
+  "id": "l3-03",
+  "layer": "l3",
+  "weight": 2.5,
+  "title": "扇出后正确汇聚，冲突不静默",
+  "why": "并行派的两个 agent 若都碰同一文件、或结果互相覆盖，你的长流程会付双倍成本重做。汇聚质量是并行策略的分母。",
+  "worktree": true,
+  "prompt": "并行派两个 subagent：A 修 Go 侧 poll.go 的收敛条件（失败对象也要能 FINISHED），B 修 TS 侧 ConfirmListPanel 的按钮隐藏。两者完成后你来合并结果，跑 go build 与 go test，并明确报告两边各自改了什么、有没有冲突。",
+  "allowedTurns": 14,
+  "assertions": [
+    { "type": "subagents", "min": 2, "parallel": true },
+    { "type": "cmd", "run": "go build ./...", "expect": "exit0" },
+    { "type": "cmd", "run": "go test ./... -count=1", "expect": "exit0" },
+    { "type": "textMatch", "must": ["poll.go", "ConfirmListPanel"] }
+  ],
+  "gold": "两个 subagent 各改各的文件（无文件交集），主会话做一次 build/test 汇总并分条列出两边改动。"
+}
