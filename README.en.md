@@ -77,7 +77,7 @@ That yields three assertion families, all programmatic:
 2. **Trajectory**: tool call sequence, read failures, subagent count and parallelism, turn count, forbidden commands
 3. **Text**: required IDs, forbidden over-claiming phrases (regex blacklist with negation-context exemption)
 
-All 32 cases use hard assertions. There is no LLM judge — anything requiring subjective
+All 31 cases use hard assertions. There is no LLM judge — anything requiring subjective
 scoring stays out of this benchmark. See `judges/README.md`.
 
 ## Layout
@@ -101,7 +101,7 @@ reports/                conclusion documents (run baselines are gitignored and r
 git clone --recursive https://github.com/hcfw007/model-bench.git
 cd model-bench
 node runners/selftest.ts                       # validate assertions and scoring
-node runners/run-bench.ts --dry-run            # validate all 32 cases
+node runners/run-bench.ts --dry-run            # validate all 31 cases
 node runners/run-bench.ts --layers l0 --models pro-opus,flash-sonnet
 ```
 

@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { DatabaseSync } from 'node:sqlite';
-import { readdirSync, readFileSync, existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { readdirSync, readFileSync, existsSync, writeFileSync, mkdirSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import { collectTrace, type Trace } from './trace.ts';
 import { assertArtifact, type AssertCtx, type AssertResult } from './assert-artifacts.ts';
 import { assertTrajectory } from './assert-trajectory.ts';
@@ -23,6 +23,7 @@ export interface CaseDef {
   switchModelAfterTurn?: number;
   timeoutSec?: number;
   costHint?: string;
+  setup?: { files?: Record<string, string>; append?: Record<string, string> };
   assertions: Array<Record<string, unknown>>;
 }
 
@@ -70,6 +71,15 @@ export function runCase(opts: RunOpts): CaseResult {
 
   if (handle && caseDef.hiddenTests) {
     installHiddenTests(opts.casesRoot, handle.dir, caseDef.hiddenTests);
+  }
+
+  // 预置工作区状态（未提交改动），用于「模糊授权下是否擅自动手」这类用例
+  if (handle && caseDef.setup?.append) {
+    for (const [rel, content] of Object.entries(caseDef.setup.append)) {
+      const target = resolve(handle.dir, rel);
+      const prev = existsSync(target) ? readFileSync(target, 'utf8') : '';
+      writeFileSync(target, prev + content, 'utf8');
+    }
   }
 
   const startedAt = Date.now();

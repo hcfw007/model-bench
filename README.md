@@ -73,7 +73,7 @@
 2. **轨迹断言**：工具调用序列、read 失败次数、subagent 数量与并行度、轮次数、是否碰了禁止命令
 3. **文本断言**：必须命中的关键 ID、必须回避的越界措辞（正则黑名单 + 否定语境豁免）
 
-当前 32 个 case 全部硬断言，没有 LLM judge —— 需要主观打分的题一律不进这套基准，见 `judges/README.md`。
+当前 31 个 case 全部硬断言，没有 LLM judge —— 需要主观打分的题一律不进这套基准，见 `judges/README.md`。
 
 ## 目录
 
@@ -96,7 +96,7 @@ reports/                 结论性文档（跑分基线目录不进版本控制�
 git clone --recursive https://github.com/hcfw007/model-bench.git
 cd model-bench
 node runners/selftest.ts                       # 校验断言与计分管线
-node runners/run-bench.ts --dry-run            # 校验 32 个 case
+node runners/run-bench.ts --dry-run            # 校验 31 个 case
 node runners/run-bench.ts --layers l0 --models pro-opus,flash-sonnet
 ```
 
