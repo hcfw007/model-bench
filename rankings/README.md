@@ -31,8 +31,19 @@ node runners/run-bench.ts --models <新模型 id> --out reports/<日期>-<模型
 # 3. 合并到该版本的总结果
 node runners/merge-results.ts reports/<版本主结果目录> reports/<日期>-<模型>
 
-# 4. 重新渲染表格，并手工更新对应版本的 md
+# 4. 重新渲染完整报告
 node runners/render-report.ts reports/<版本主结果目录>
+
+# 5. 把排行榜同步回 README 首屏与该版本的 md（锚点之间自动替换）
+node runners/sync-rankings.ts reports/<版本主结果目录> --version v1.0
 ```
+
+第 5 步会更新三处，不要手改：
+
+- `README.md` 首屏排行块
+- `README.en.md` 首屏排行块
+- `rankings/v1.0.md` 的排行榜
+
+它们都带 `<!-- RANKING:START -->` / `<!-- RANKING:END -->` 锚点。
 
 只有一个模型跑过某版本时，表格里其他模型的分列留空，不要用不同版本的分数填补。

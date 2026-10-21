@@ -4,6 +4,7 @@
 
 > ### 📊 [v1.0 rankings](rankings/v1.0.md)
 >
+> <!-- RANKING:START -->
 > | # | Model | Score |
 > |---|---|---|
 > | 1 | `kiro/claude-sonnet-5-5` | **100.0** |
@@ -11,6 +12,7 @@
 > | 3 | `kiro/claude-opus-5-5` | **96.3** |
 >
 > 31 cases · 2026-10-22
+> <!-- RANKING:END -->
 
 A personal benchmark reverse-engineered from my own opencode usage: 1,053 sessions,
 3,651 user turns, 60,036 assistant messages.
