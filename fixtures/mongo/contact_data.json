@@ -1,0 +1,25 @@
+{
+  "_comment": "crm.contact_data 查询结果（orgId + externalUserId）。tags 为空是本 case 的关键事实。",
+  "documents": [
+    {
+      "_id": { "$oid": "650000000000000000000009" },
+      "orgId": "650000000000000000000002",
+      "botId": "650000000000000000000004",
+      "externalUserId": "wmAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA1",
+      "name": "测试号",
+      "wxid": "7881300000000001",
+      "tags": [],
+      "deleted": false
+    },
+    {
+      "_id": { "$oid": "65000000000000000000000a" },
+      "orgId": "650000000000000000000002",
+      "botId": "650000000000000000000004",
+      "externalUserId": "wmAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA2",
+      "name": "customer-b",
+      "wxid": "7881300000000002",
+      "tags": ["650000000000000000000006"],
+      "deleted": false
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "_comment": "new_identity.bot_user 记录。userId 是托管账号维度身份（创建时兜底生成的 ObjectId），不是平台登录成员 ID。这条数据是 #31 的全部事实来源。",
+  "documents": [
+    {
+      "_id": { "$oid": "650000000000000000000005" },
+      "botId": "650000000000000000000004",
+      "wxUserId": "testbot",
+      "name": "tester",
+      "userId": { "$oid": "650000000000000000000005" },
+      "corpId": "ww0000000000000000",
+      "createdAt": "2026-03-11T08:12:00.000Z"
+    }
+  ],
+  "_sameBotRealMember": {
+    "_comment": "同一 bot 在 im_user / 平台成员体系里的真实成员 ID。与上面的 userId 不同。",
+    "botId": "650000000000000000000004",
+    "platformMemberId": "650000000000000000000003",
+    "note": "这是推断依据，不是已证实结论：bot_user.userId 与平台成员 ID 语义不同，是否属于数据问题尚未定性。"
+  }
+}

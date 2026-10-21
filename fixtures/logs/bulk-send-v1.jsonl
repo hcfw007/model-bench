@@ -1,0 +1,10 @@
+{"ts":"2026-10-08T14:30:02.113Z","level":"INFO","service":"some-service","traceId":"a1b2c3d4e5f60001","msg":"create official job","jobId":"650000000000000000000001","orgId":"650000000000000000000002","botId":"650000000000000000000004","notifyMode":0,"targetCount":1,"hasMarkTag":true}
+{"ts":"2026-10-08T14:30:02.240Z","level":"INFO","service":"some-service","traceId":"a1b2c3d4e5f60001","msg":"job status created","jobId":"650000000000000000000001","status":1}
+{"ts":"2026-10-08T14:36:41.882Z","level":"INFO","service":"some-service","traceId":"a1b2c3d4e5f60002","msg":"handle card event confirmed","jobId":"650000000000000000000001","memberId":"650000000000000000000003"}
+{"ts":"2026-10-08T14:36:41.905Z","level":"INFO","service":"some-service","traceId":"a1b2c3d4e5f60002","msg":"cas status wait_confirm -> sending","jobId":"650000000000000000000001"}
+{"ts":"2026-10-08T14:36:41.930Z","level":"INFO","service":"runtime-svc","traceId":"a1b2c3d4e5f60003","msg":"bulkSendV1Event","jobId":"650000000000000000000001","externalUserId":"wmAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA1","error":""}
+{"ts":"2026-10-08T14:41:10.004Z","level":"INFO","service":"some-service","traceId":"a1b2c3d4e5f60004","msg":"sync job","jobId":"650000000000000000000001","sentCount":1,"total":1,"resultSynced":true}
+{"ts":"2026-10-08T14:41:10.011Z","level":"INFO","service":"some-service","traceId":"a1b2c3d4e5f60004","msg":"job finished","jobId":"650000000000000000000001","status":4}
+{"ts":"2026-10-08T14:41:10.012Z","level":"INFO","service":"some-service","traceId":"a1b2c3d4e5f60004","msg":"poll round done","jobId":"650000000000000000000001"}
+{"ts":"2026-10-08T09:15:22.501Z","level":"INFO","service":"autotest-runner","traceId":"f0e1d2c3b4a50001","msg":"mark tag","jobId":"autotest-job-8891","contactId":"65000000000000000000000b","tagId":"650000000000000000000006","source":"autotest"}
+{"ts":"2026-10-08T09:16:03.884Z","level":"INFO","service":"autotest-runner","traceId":"f0e1d2c3b4a50002","msg":"mark tag","jobId":"autotest-job-8892","contactId":"65000000000000000000000c","tagId":"650000000000000000000006","source":"autotest"}
