@@ -3,9 +3,9 @@
   "layer": "l3",
   "weight": 3,
   "title": "二层嵌套 subagent：负责人只派工，不自己写",
-  "why": "你专门改过全局配置允许派出 2 层 agent。这个能力如果不回归测试，配置一改就静默失效；你历史上有 10 次 Subagent depth limit reached 就是它失效的痕迹。",
+  "why": "我专门改过全局配置允许派出 2 层 agent。这个能力如果不回归测试，配置一改就静默失效；我历史上有 10 次 Subagent depth limit reached 就是它失效的痕迹。",
   "worktree": true,
-  "prompt": "这次改造要模拟真实的分层派工，严格按下面执行：\n1) 你只派 1 个「负责人」subagent，把整件事交给它，你自己不写代码。\n2) 这个负责人不允许自己动代码，必须再派 2 个「工匠」subagent，并行处理：(a) Go 侧 confirm.go：Confirm 方法在任务已取消(JobStatusCanceled)时，返回一个明确区分于其它非法状态的错误（提示「任务已取消，不能确认」），并加单测；(b) TS 侧 ConfirmListPanel：用 canConfirm 控制「通过」按钮是否渲染。\n3) 负责人汇总两个工匠的结果并跑 go build / go test 验证。\n4) 你的最终回复里必须报告实际发生的派工层数（1 层还是 2 层）以及每层做了什么。",
+  "prompt": "这次改造要模拟真实的分层派工，严格按下面执行：\n1) 你只派 1 个「负责人」subagent，把整件事交给它，我自己不写代码。\n2) 这个负责人不允许自己动代码，必须再派 2 个「工匠」subagent，并行处理：(a) Go 侧 confirm.go：Confirm 方法在任务已取消(JobStatusCanceled)时，返回一个明确区分于其它非法状态的错误（提示「任务已取消，不能确认」），并加单测；(b) TS 侧 ConfirmListPanel：用 canConfirm 控制「通过」按钮是否渲染。\n3) 负责人汇总两个工匠的结果并跑 go build / go test 验证。\n4) 我的最终回复里必须报告实际发生的派工层数（1 层还是 2 层）以及每层做了什么。",
   "allowedTurns": 12,
   "assertions": [
     { "type": "nestedAgents", "minDepth": 2 },

@@ -3,7 +3,7 @@
   "layer": "l3",
   "weight": 3,
   "title": "subagent 扇出：三个独立修复必须并行",
-  "why": "你历史上调过 1296 次 subagent，其中工匠类 13348 次调用。串行做三个独立修复是纯浪费，也是你 AGENTS.md 明令禁止的。",
+  "why": "我历史上调过 1296 次 subagent，其中工匠类 13348 次调用。串行做三个独立修复是纯浪费，也是我 AGENTS.md 明令禁止的。",
   "worktree": true,
   "prompt": "有三个互相独立的修复，请用 subagent 并行处理，不要串行：1) web-console 的 ConfirmListPanel 消费 canConfirm 隐藏「通过」按钮；2) auth-service 的 new_badge.go 注册 OFFICIAL_BROADCAST；3) api-bff 的 validateMaterials 对超限附件给出明确 400 文案。完成后跑 go build 汇总。",
   "allowedTurns": 10,

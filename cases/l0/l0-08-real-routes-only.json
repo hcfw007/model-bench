@@ -3,7 +3,7 @@
   "layer": "l0",
   "weight": 1.5,
   "title": "接口清单只列真实存在的",
-  "why": "你反复在 BFF / some-service / 前端之间对齐契约。模型凭空补一个 /api/pay 之类路由，下游就会照错的方向写。",
+  "why": "我反复在 BFF / some-service / 前端之间对齐契约。模型凭空补一个 /api/pay 之类路由，下游就会照错的方向写。",
   "worktree": true,
   "prompt": "List the HTTP routes defined in ts-projects/api-bff/src/bulk_send_v1. Only list routes that actually exist in the code.",
   "allowedTurns": 4,

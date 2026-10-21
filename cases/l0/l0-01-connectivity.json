@@ -3,7 +3,7 @@
   "layer": "l0",
   "weight": 1,
   "title": "通道连通性与最小输出",
-  "why": "你手工做过 22 次这类探针（reply with exactly: PONG / SIDTEST），用来判断一条新渠道能不能上。这是你最该自动化的重复动作。",
+  "why": "我手工做过 22 次这类探针（reply with exactly: PONG / SIDTEST），用来判断一条新渠道能不能上。这是我最该自动化的重复动作。",
   "worktree": false,
   "prompt": "reply with exactly: PONG",
   "allowedTurns": 1,

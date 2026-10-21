@@ -48,7 +48,7 @@ File not found: .../web-console/src/Pages/Broadcast/BulkSendV1/utils.ts
 | 其他（WebSocket 断开等） | 9 |
 
 结论：深度限制是真实存在的硬墙，其中 `(1)` 那 4 次说明**部分 agent 的配置没有继承全局的 2 层设置**。
-你后来改全局配置是对的，但需要回归验证。
+我后来改全局配置是对的，但需要回归验证。
 
 → case：`l3-01-fanout-parallel`、`l3-02-nested-agents`
 
@@ -61,19 +61,19 @@ File not found: .../web-console/src/Pages/Broadcast/BulkSendV1/utils.ts
 | 交互取消 | 14 |
 | Command cancelled | 8 |
 
-结论：你的 `setvar` 分支名锁定护栏真实拦截了 37 次越权操作。
+结论：我的 `setvar` 分支名锁定护栏真实拦截了 37 次越权操作。
 这是自研 harness 里最有效的一个机制，应该保留并在基准里作为「护栏不应误杀」的对照。
 
 ## 5. 审查不收敛（无法用工具错误量化，从会话文本提取）
 
 在 170 轮 / 110 轮 / 81 轮三个长会话里反复出现：
 
-- 「reviewer-bot反馈的问题，我看还是相同的，你确认下，到底是不是一直没解决的问题」
+- 「reviewer-bot反馈的问题，我看还是相同的，我确认下，到底是不是一直没解决的问题」
 - 「现在什么情况了，是审核卡住了吗？」
 - 「检查一下 subagent 的情况，我感觉有的已经好久了」
 
 结论：失败不是「改不对」，而是**没有在重复第 N 次时切换策略**。
-你自己定的规则「正常到 5 次不自动重开而是提醒人工」目前只写在 skill 里，
+我自己定的规则「正常到 5 次不自动重开而是提醒人工」目前只写在 skill 里，
 没有落到可验证的行为上。
 
 → case：`l2-04-review-convergence`、`l3-05-stuck-subagent`

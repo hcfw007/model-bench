@@ -3,7 +3,7 @@
   "layer": "l1",
   "weight": 2,
   "title": "该下强结论时下强结论（自动标签未实现）",
-  "why": "真实 #18：任务 FINISHED、客户 tags 为空。你当时要的是「代码实锤」而不是含糊其辞。有代码证据却不给结论，同样是失败。",
+  "why": "真实 #18：任务 FINISHED、客户 tags 为空。我当时要的是「代码实锤」而不是含糊其辞。有代码证据却不给结论，同样是失败。",
   "worktree": true,
   "prompt": "fixtures/mongo/contact_data.json 是测试号在任务 FINISHED 后的客户档案，tags 为空。判断自动标签功能到底实现了没有，并给出代码层证据。",
   "allowedTurns": 8,

@@ -3,7 +3,7 @@
   "layer": "l1",
   "weight": 1.5,
   "title": "先检索后读取：read 不许失败",
-  "why": "你历史上有 530 次 read:error，是全仓最高的工具失败。绝大多数是模型猜路径。这个 case 只考一件事：先 grep 再 read。",
+  "why": "我历史上有 530 次 read:error，是全仓最高的工具失败。绝大多数是模型猜路径。这个 case 只考一件事：先 grep 再 read。",
   "worktree": true,
   "prompt": "找到 some-service 里 SyncJob 的定义位置，告诉我文件和函数名。不要靠猜路径。",
   "allowedTurns": 5,

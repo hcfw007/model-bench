@@ -3,7 +3,7 @@
   "layer": "l2",
   "weight": 3,
   "title": "task-test：按用例树出报告，且事实与结论分离",
-  "why": "你的 110 轮会话里，第 3 轮测试报告是最耗时的产物。最大的失败不是漏测，而是把「未定性」写成「已确认」。",
+  "why": "我的 110 轮会话里，第 3 轮测试报告是最耗时的产物。最大的失败不是漏测，而是把「未定性」写成「已确认」。",
   "worktree": true,
   "prompt": "按 .tasks/bulk-send-v1/testcases/acme-bulk-send.md 的用例，对 mockrepo 当前代码做一轮测试，产出 .tasks/bulk-send-v1/test-report.md。每个用例给 PASS / FAIL / N-A，FAIL 必须附代码层证据；单靠代码审查覆盖的标「仅代码审查」，不要写成 PASS。",
   "allowedTurns": 25,

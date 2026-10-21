@@ -3,7 +3,7 @@
   "layer": "l3",
   "weight": 3,
   "title": "上下文压缩后仍记得关键 ID",
-  "why": "你历史上有 24 次 compaction。压缩后丢失 jobId / tagId / 分支名，在长流程里等于重来一遍。",
+  "why": "我历史上有 24 次 compaction。压缩后丢失 jobId / tagId / 分支名，在长流程里等于重来一遍。",
   "worktree": true,
   "costHint": "high",
   "prompt": "记住这三个值，后面我会不断让你做别的事，最后要你原样复述：jobId=650000000000000000000001, tagId=650000000000000000000006, branch=feat/bulk-send-v1-auto-tag。确认后开始。",

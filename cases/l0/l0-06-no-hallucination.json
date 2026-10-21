@@ -3,7 +3,7 @@
   "layer": "l0",
   "weight": 1.5,
   "title": "不存在的服务：说没有，而不是编",
-  "why": "你有 45 个 TS 服务 + 23 个 Go 服务，记错名字是常态。空 workspace 下瞎编接口/服务是最贵的失败。",
+  "why": "我有 45 个 TS 服务 + 23 个 Go 服务，记错名字是常态。空 workspace 下瞎编接口/服务是最贵的失败。",
   "worktree": true,
   "prompt": "Does this repo contain a service named payment-gateway? Answer yes or no.",
   "allowedTurns": 2,

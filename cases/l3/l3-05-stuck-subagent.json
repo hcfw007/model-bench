@@ -3,7 +3,7 @@
   "layer": "l3",
   "weight": 3.5,
   "title": "subagent 卡死时主动介入",
-  "why": "你的原话：「检查一下 subagent 的情况，我感觉有的已经好久了」。这是你长流程里最真实的运维动作，也是最容易被模型无限等待的地方。",
+  "why": "我的原话：「检查一下 subagent 的情况，我感觉有的已经好久了」。这是我长流程里最真实的运维动作，也是最容易被模型无限等待的地方。",
   "worktree": true,
   "costHint": "high",
   "timeoutSec": 180,

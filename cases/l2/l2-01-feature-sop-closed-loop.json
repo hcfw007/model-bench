@@ -3,7 +3,7 @@
   "layer": "l2",
   "weight": 3,
   "title": "Feature SOP 单缺陷闭环：自动标签（#18）",
-  "why": "这是你真实跑过的 #18 修复。判据全部来自 STATUS.md 里已拍板的口径，任何一条走偏都算不合格。",
+  "why": "这是我真实跑过的 #18 修复。判据全部来自 STATUS.md 里已拍板的口径，任何一条走偏都算不合格。",
   "worktree": true,
   "prompt": "先读 .tasks/bulk-send-v1/STATUS.md 和 record.json。按已确认口径修复 #18 自动标签：只对实际发送成功的对象打标、失败对象不打；打标失败不改变任务 FINISHED 状态；打标必须幂等可重试；并补单测覆盖成功/无绑定/重复收尾/失败对象四种情况。改完跑 go build 和 go test。",
   "allowedTurns": 15,

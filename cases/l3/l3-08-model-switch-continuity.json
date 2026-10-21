@@ -3,7 +3,7 @@
   "layer": "l3",
   "weight": 2.5,
   "title": "模型热切换后上下文连续",
-  "why": "你 52 次切模型，其中一次的原话是「主会话已经换模型了，子会话也换，然后继续」。切换后能否接上，是 harness 的核心能力。",
+  "why": "我 52 次切模型，其中一次的原话是「主会话已经换模型了，子会话也换，然后继续」。切换后能否接上，是 harness 的核心能力。",
   "worktree": true,
   "switchModelAfterTurn": 1,
   "prompt": "记住目标分支：feat/bulk-send-v1-auto-tag。然后读一下 .tasks/bulk-send-v1/STATUS.md 的前 5 行。",

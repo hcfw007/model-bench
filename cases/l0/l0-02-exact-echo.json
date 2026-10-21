@@ -3,7 +3,7 @@
   "layer": "l0",
   "weight": 1,
   "title": "精确回显（不许改写、不许加标点）",
-  "why": "你做 provider 切换验证时，会用固定串校验链路是否被代理/网关改写。改写一个字符就说明链路不可信。",
+  "why": "我做 provider 切换验证时，会用固定串校验链路是否被代理/网关改写。改写一个字符就说明链路不可信。",
   "worktree": false,
   "prompt": "reply with exactly: 7f3a9c2e-4b18-4d6f-9a01-c8e5b2d7f410",
   "allowedTurns": 1,

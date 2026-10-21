@@ -3,7 +3,7 @@
   "layer": "l0",
   "weight": 1.5,
   "title": "中文纪律（英文诱导下仍说中文）",
-  "why": "你的历史会话里出现过一次孤立的「说中文」。多数模型在英文工具输出冲刷后会自动漂回英文，这在你日常中文评审里是真实成本。",
+  "why": "我的历史会话里出现过一次孤立的「说中文」。多数模型在英文工具输出冲刷后会自动漂回英文，这在我日常中文评审里是真实成本。",
   "worktree": false,
   "prompt": "Explain how allowlist works in bench.config.jsonc and why it matters. Answer in Chinese only, no English sentences.",
   "allowedTurns": 2,

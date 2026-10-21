@@ -1,35 +1,34 @@
 # model-bench
 
-在真实 opencode 使用数据（1053 会话 / 3651 轮输入 / 60036 条助手消息）上反向设计出来的一套**个人基准**。
+**中文** | [English](README.en.md)
 
-它不追求公平，只追求**贴合我的场景**：多服务 monorepo、SOP 驱动、subagent 扇出、频繁换模型、必须收敛。
+一套在我真实 opencode 使用数据上反向设计出来的个人基准：1053 个会话、3651 轮输入、60036 条助手消息。
 
-## 定位与边界（重要）
+我不追求公平，只追求贴合自己的场景：多服务 monorepo、SOP 驱动、subagent 扇出、频繁换模型、必须收敛。
 
-这是**基于个人使用习惯**做的私有基准，不是通用评测集。请不要拿它做横向对比。
+## 定位与边界
 
-**不能用来做这些事：**
+这是基于个人使用习惯做的基准，不是通用评测集。请不要拿它做横向对比。
+
+**不能用来做：**
 
 | 不适用 | 原因 |
 |---|---|
-| 横向对比不同模型 | L0–L3 的权重是照我个人的工作流配的（58% 输入≤120 字符、87% 会话在同一个仓），别的团队场景不同，结论不通用 |
-| 横向对比不同 harness | runner 只实现了 opencode adapter（读 `opencode.db` 的遥测格式）。Claude Code / Codex / Cursor 无法直接跑 |
-| 当作行业 benchmark 引用 | 样本只有 1053 个会话，全部来自同一个 monorepo，且经过脱敏改写 |
+| 横向对比不同模型 | L0–L3 的权重是照个人的工作流配的（58% 输入 ≤120 字符、87% 会话在同一个仓），换个团队结论就不成立 |
+| 横向对比不同 harness | runner 只实现了 opencode adapter，读的是 `opencode.db` 的遥测格式；Claude Code / Codex / Cursor 跑不了 |
+| 当作行业 benchmark 引用 | 样本只有 1053 个会话，全部来自同一个 monorepo，而且经过脱敏改写 |
 
-**适合用来做这些事：**
+**适合用来做：**
 
-- **我自己的模型选型**：同一套真实任务跨模型复跑，比返工轮次和工具错误，而不是比单项分数
+- **自己的模型选型**：同一套真实任务跨模型复跑，比返工轮次和工具错误，而不是比单项分数
 - **opencode 的纵向回归**：升级或改配置后，验证 subagent / 压缩 / 热切换有没有退化
 - **验证规则是否生效**：把反复出现的失败模式固化成 AGENTS.md 条款，再用对应 case 回归
 
-换句话说：**它的结论只对"我"有效，而且只在"同一时间点的同一套配置"下可比。**
-
-> 文档里的「你」均指作者本人——这些内容是写给自己看的复盘记录，不是给读者的教程。
-
+结论只对"我自己"有效，而且只在同一时间点的同一套配置下可比。
 
 ## 设计依据
 
-不是拍脑袋定的题型，是从自己的会话历史里反推的：
+题型不是拍脑袋定的，是从会话历史里反推的：
 
 | 真实数据 | 导出的设计决策 |
 |---|---|
@@ -47,20 +46,20 @@
 | 层 | 权重 | 判什么 |
 |---|---|---|
 | L0 通道 | 10 | 连通、指令服从、危险操作拒绝、语言纪律 |
-| L1 单点 | 20 | 多服务定位、最小编辑、取证、**缺陷定性不越界** |
-| L2 流水线 | 40 | SOP 端到端，核心指标是**返工轮次** |
+| L1 单点 | 20 | 多服务定位、最小编辑、取证、缺陷定性不越界 |
+| L2 流水线 | 40 | SOP 端到端，核心指标是返工轮次 |
 | L3 Harness | 25 | subagent 扇出/二层嵌套、压缩恢复、权限边界、错误自愈 |
 | 成本 | 5 | token 与时长，仅用于同分排序 |
 
-三层分数分开输出，因为它们的用途不同：
+分层输出，因为用途不同：
 
 - `L0 + 成本` → 判断一条新渠道能不能上（我手工做过 22 次同类探针）
-- `L1 + L2` → 跨模型横向比较，看同一任务谁的返工少
-- `L3` → opencode 升级/改配置后的纵向回归基线
+- `L1 + L2` → 跨模型比较，看同一任务谁的返工少
+- `L3` → opencode 升级/改配置后的纵向回归
 
 ## 判分为什么能全自动
 
-关键：**opencode 自己把轨迹落库了**。每个 case 跑完，从
+关键：opencode 自己把轨迹落库了。每个 case 跑完，从
 `~/.local/share/opencode/opencode.db` 的 `session_v2` / `session_message` 里能拿到：
 
 - 每次工具调用的名字、入参、状态（`completed` / `error`）
@@ -72,9 +71,9 @@
 
 1. **产物断言**：diff 文件集合、行数、必须出现/不得出现的符号、`go build` / `go test` / `tsc` 结果
 2. **轨迹断言**：工具调用序列、read 失败次数、subagent 数量与并行度、轮次数、是否碰了禁止命令
-3. **文本断言**：必须命中的关键 ID、必须回避的越界措辞（正则黑名单）
+3. **文本断言**：必须命中的关键 ID、必须回避的越界措辞（正则黑名单 + 否定语境豁免）
 
-当前 32 个 case 全部是硬断言，没有 LLM judge —— 需要主观打分的题一律不进这套基准，见 `judges/README.md`。
+当前 32 个 case 全部硬断言，没有 LLM judge —— 需要主观打分的题一律不进这套基准，见 `judges/README.md`。
 
 ## 目录
 
@@ -86,42 +85,41 @@ mockrepo/               脱敏 monorepo（submodule，独立仓）
   .tasks/                 跨 session 状态继承的素材
 cases/l0..l3/            每个 case 一个 json（prompt + 环境 + 判据 + 权重）
 runners/                 编排 / 采集 / 判分
-judges/                  断言库 + LLM judge 说明
-fixtures/                伪造的日志、mongo 文档、xmind 用例树
-reports/                 结论性文档（跑分基线目录不纳入版本控制，可重新生成）
+judges/                  断言边界说明
+fixtures/                伪造的日志、mongo 文档、用例树
+reports/                 结论性文档（跑分基线目录不进版本控制，可重新生成）
 ```
 
-## 一条命令
+## 跑起来
 
 ```bash
-node runners/run-bench.ts --models gpt-6.1-sol,claude-opus-5-5 --layers l0,l1 --repeat 1
+git clone --recursive https://github.com/hcfw007/model-bench.git
+cd model-bench
+node runners/selftest.ts                       # 校验断言与计分管线
+node runners/run-bench.ts --dry-run            # 校验 32 个 case
+node runners/run-bench.ts --layers l0 --models pro-opus,flash-sonnet
 ```
 
-输出 `reports/<timestamp>/leaderboard.md` 与 `reports/<timestamp>/failures.md`。
+只依赖 Node 内置模块（`node:sqlite` + type stripping），不需要 `npm install`。
 
-只跑冒烟：
+输出 `reports/<timestamp>/leaderboard.md` 与 `failures.md`。
 
-```bash
-node runners/run-bench.ts --dry-run      # 校验所有 case 与断言类型，不调用模型
-node runners/selftest.ts                 # 校验断言与计分管线本身
-```
+## 已知需要校准的地方
 
-## 已知待校准项
+`runners/lib/runner.ts` 里的两处调用依赖 opencode CLI 的真实参数，换版本后需要确认：
 
-`runners/lib/runner.ts` 里的两处调用依赖 opencode CLI 的真实参数，首次真跑前需要确认：
+1. `opencode run -m <provider/model#variant> "<prompt>"` — 模型参数格式
+2. `opencode run --session <id> "<msg>"` — 续接同一会话
 
-1. `opencode run -m <provider/model> "<prompt>"` — 模型参数名
-2. `opencode run --session <id> "<msg>"` — 续接同一会话的参数名
-
-若 CLI 不一致，只改这两行，其余逻辑不受影响。`variant`（如 `:high`）当前未透传，
-因为 CLI 没有稳定入口；需要时通过档位文件控制。
+另外 `bench.config.jsonc` 里的档位引用是 `{file:~/.config/opencode/models/pro}`，
+没有这个文件时直接填 `provider/model` 即可。
 
 ## 安全边界
 
-mockrepo 是本地新 git 仓，**不指向任何真实远端**。case 里的禁止操作判据会显式检查：
+mockrepo 是本地新 git 仓，不指向任何真实远端。每个 case 都强制检查：
 
 - 未执行 `git push` / `git push --force`
 - 未调用真实群发 / 真实消息接口
-- 未修改 `~/.config/opencode` 与真实 `~/acme`
+- 未修改 `~/.config/opencode`、业务仓路径、`~/.claude`
 
-任何一条违反 → 该次运行直接判 0 并标 `VIOLATION`，不进排行榜。
+命中任意一条 → 该次运行判 0 分并标 `VIOLATION`，不进排行榜。

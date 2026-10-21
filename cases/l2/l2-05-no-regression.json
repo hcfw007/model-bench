@@ -3,7 +3,7 @@
   "layer": "l2",
   "weight": 3.5,
   "title": "修 A 不引入 B：收敛条件 + 打标同时成立",
-  "why": "你真实踩过：为了修reviewer-bot的一条意见，引入了 nest 起不来的新问题。这是你复盘时最痛的一类。隐藏测试会同时要求「部分失败也收敛」和「只对成功对象打标且幂等」。",
+  "why": "我真实踩过：为了修reviewer-bot的一条意见，引入了 nest 起不来的新问题。这是我复盘时最痛的一类。隐藏测试会同时要求「部分失败也收敛」和「只对成功对象打标且幂等」。",
   "worktree": true,
   "prompt": "现在有两个问题要一起解决：(1) 任务里只要有对象发送失败就永远停在 SENDING；(2) 自动标签在 FINISHED 后从未执行。请一并修复，要求：失败对象不打标、重复收尾不重复打标、不破坏既有行为。不要改动任何已导出的函数签名。改完跑 go test。",
   "hiddenTests": ["l2-05/gold_test.go -> go-projects/some-service/internal/biz/bulk_send_v1/zz_gold_test.go"],

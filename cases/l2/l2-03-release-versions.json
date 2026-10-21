@@ -3,7 +3,7 @@
   "layer": "l2",
   "weight": 2,
   "title": "task-release：多服务版本同步，不夹带代码改动",
-  "why": "你的 task-release 会一次拉 5-8 个服务。漏一个版本、或顺手改了代码，都会让发布文档对不上。",
+  "why": "我的 task-release 会一次拉 5-8 个服务。漏一个版本、或顺手改了代码，都会让发布文档对不上。",
   "worktree": true,
   "prompt": "发布准备：把 some-service、auth-service、contact-data-service 三个服务的版本统一升到 1.4.0，并在 .tasks/bulk-send-v1/record.json 的 branches 之外追加一个 release 字段记录 1.4.0。只改版本与档案，不要动业务代码。",
   "allowedTurns": 10,
