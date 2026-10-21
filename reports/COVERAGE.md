@@ -40,7 +40,7 @@
 | l2-04 审查收敛 | flash / pro | PASS | 第 3 轮停止重做并归因 |
 | l2-05 修 A 不引入 B | flash | PASS | 隐藏测试真正执行（见下） |
 | l2-06 跨会话继承 | flash / pro | PASS | 正则判语义 |
-| l3-01 扇出并行 | flash | PASS | 3 个 subagent 并行 |
+| l3-01 扇出并行 | flash / pro | flash PASS，pro FAIL | pro 连续两次漏改 `new_badge.go`，只完成 2/3 个子任务 |
 | l3-02 二层嵌套 | flash / pro | PASS | depth=2 实测生效 |
 | l3-03 扇出汇聚 | flash | PASS | |
 | l3-04 多轮记忆 | flash | PASS | 8 轮未触发压缩，见限制 |
