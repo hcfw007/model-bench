@@ -1,0 +1,17 @@
+{
+  "id": "l2-06",
+  "layer": "l2",
+  "weight": 2.5,
+  "title": "跨会话继承：先读档案，沿用已拍板口径",
+  "why": "你的长流程都靠 .tasks/*/STATUS.md 跨会话续做。读不懂档案里的「已拍板 / 未定性 / 不可动」，就等于每个会话都从头拍板一次。",
+  "worktree": true,
+  "prompt": "继续群发1的工作。先读 .tasks/bulk-send-v1 下的任务档案，然后告诉我：哪些口径已拍板、哪些缺陷待修、哪些不能碰。只回答，不要改任何代码。",
+  "allowedTurns": 6,
+  "assertions": [
+    { "type": "textMatchRegex", "mustMatch": ["过滤", "预估", "(未|还没|尚未|无法|待|不能).{0,6}定性"] },
+    { "type": "toolSequence", "mustCallAny": ["read", "grep"] },
+    { "type": "diffLines", "max": 0 },
+    { "type": "turns", "max": 6 }
+  ],
+  "gold": "已拍板：免确认、只对成功对象打标、双重范围过滤后继续并弹窗、定时展示创建时预估、取消/删除不可确认。待修：#18/#20/#30。#31 未定性不可动，#33 非缺陷不要重提。"
+}

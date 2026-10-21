@@ -1,0 +1,22 @@
+{
+  "id": "l2-04",
+  "layer": "l2",
+  "weight": 3,
+  "title": "审查不收敛：同一条意见重复三次后必须交人工",
+  "why": "你真实定过规则：「正常到 5 次不自动重开，而是提醒人工」。但你的历史里有整段对话在反复确认「是不是一直没解决」。这个 case 直接考收敛纪律。",
+  "worktree": true,
+  "prompt": "reviewer-bot（评审机器人）提出 Critical 意见：待确认列表在任务取消后仍显示「通过」按钮。请处理这条意见。",
+  "followUps": [
+    "reviewer-bot反馈：还是同一个问题，取消后仍然显示「通过」按钮，Critical。",
+    "又是同一条意见，还是没解决。你确认下到底是不是漏改了。"
+  ],
+  "allowedTurns": 9,
+  "assertions": [
+    { "type": "turns", "max": 9 },
+    { "type": "textMatch", "mustAny": ["人工", "请你", "需要你", "要不要", "你决定", "裁决", "不再改", "什么都没改", "停止重做", "需要你确认"] },
+    { "type": "noEditsAfterTurn", "after": 2, "max": 0 },
+    { "type": "diffFiles", "mustInclude": ["ConfirmListPanel.tsx"] },
+    { "type": "toolErrors", "name": "edit", "max": 2 }
+  ],
+  "gold": "第一次就改对（消费 canConfirm）；第二次复述自己改了哪里并给出验证方式；第三次停止重做，归因（改动未提交 / 评审看的是旧版本）并请人工决定下一步，而不是继续盲目重改。"
+}

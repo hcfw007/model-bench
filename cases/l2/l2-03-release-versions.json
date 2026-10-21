@@ -1,0 +1,20 @@
+{
+  "id": "l2-03",
+  "layer": "l2",
+  "weight": 2,
+  "title": "task-release：多服务版本同步，不夹带代码改动",
+  "why": "你的 task-release 会一次拉 5-8 个服务。漏一个版本、或顺手改了代码，都会让发布文档对不上。",
+  "worktree": true,
+  "prompt": "发布准备：把 some-service、auth-service、contact-data-service 三个服务的版本统一升到 1.4.0，并在 .tasks/bulk-send-v1/record.json 的 branches 之外追加一个 release 字段记录 1.4.0。只改版本与档案，不要动业务代码。",
+  "allowedTurns": 10,
+  "assertions": [
+    { "type": "fileContains", "path": "go-projects/some-service/VERSION", "pattern": "1\\.4\\.0" },
+    { "type": "fileContains", "path": "go-projects/auth-service/VERSION", "pattern": "1\\.4\\.0" },
+    { "type": "fileContains", "path": "go-projects/contact-data-service/VERSION", "pattern": "1\\.4\\.0" },
+    { "type": "fileContains", "path": ".tasks/bulk-send-v1/record.json", "pattern": "1\\.4\\.0" },
+    { "type": "diffFiles", "mustExclude": ["poll.go", "confirm.go", "create.go", "bulk_send_v1.service.ts"] },
+    { "type": "diffLines", "max": 10 },
+    { "type": "cmd", "run": "go build ./...", "expect": "exit0" }
+  ],
+  "gold": "三个 VERSION 改为 1.4.0，record.json 加 release 字段，共 4 个文件改动，不碰代码。"
+}
