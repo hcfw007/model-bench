@@ -48,8 +48,13 @@ export function assertTrajectory(a: Record<string, unknown>, ctx: AssertCtx): As
   }
 
   if (type === 'toolErrors') {
-    const n = t.toolErrors[String(a.name)] ?? 0;
-    return { type, pass: n <= Number(a.max ?? 0), detail: `${a.name}:error=${n}` };
+    // 支持 excludePattern：过滤环境噪音（如 harness 自身去读 session-vars.json 失败）
+    const name = String(a.name);
+    const exclude = a.excludePattern ? new RegExp(String(a.excludePattern)) : null;
+    const n = t.toolCalls.filter(
+      (c) => c.name === name && c.error && !(exclude && exclude.test(c.error)),
+    ).length;
+    return { type, pass: n <= Number(a.max ?? 0), detail: `${name}:error=${n}` };
   }
 
   if (type === 'toolSequence') {

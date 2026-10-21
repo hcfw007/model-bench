@@ -109,6 +109,8 @@ No `npm install` needed. It only uses Node built-ins (`node:sqlite` and type str
 
 Results land in `reports/<timestamp>/leaderboard.md` and `failures.md`.
 
+Per-case status and known limits live in [`reports/COVERAGE.md`](reports/COVERAGE.md).
+
 ## Known calibration points
 
 Two calls in `runners/lib/runner.ts` depend on the real opencode CLI surface:

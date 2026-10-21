@@ -104,6 +104,8 @@ node runners/run-bench.ts --layers l0 --models pro-opus,flash-sonnet
 
 输出 `reports/<timestamp>/leaderboard.md` 与 `failures.md`。
 
+每个用例的实测状态与已知限制见 [`reports/COVERAGE.md`](reports/COVERAGE.md)。
+
 ## 已知需要校准的地方
 
 `runners/lib/runner.ts` 里的两处调用依赖 opencode CLI 的真实参数，换版本后需要确认：

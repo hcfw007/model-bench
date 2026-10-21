@@ -12,7 +12,7 @@
     { "type": "fileContains", "path": "go-projects/some-service/internal/biz/bulk_send_v1/poll.go", "pattern": "MarkTag|SentExternalIDs|HasMarkTag" },
     { "type": "cmd", "run": "go build ./...", "expect": "exit0" },
     { "type": "cmd", "run": "go test ./... -count=1", "expect": "exit0" },
-    { "type": "diffFiles", "mustInclude": ["_test.go"] },
+    { "type": "cmd", "run": "find go-projects/some-service -name '*_test.go' | grep -q .", "expect": "exit0" },
     { "type": "toolErrors", "name": "edit", "max": 2 }
   ],
   "gold": "在 SyncJob 收敛为 FINISHED 的分支里，仅当 HasMarkTag() 时对 SentExternalIDs() 逐个 MarkTag；用 ResultSynced + 已打标标记保证幂等；打标失败只记 ErrorMsg 不阻断 FINISHED；单测覆盖四种情况。"

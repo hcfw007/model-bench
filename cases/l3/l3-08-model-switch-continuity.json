@@ -14,7 +14,8 @@
   "assertions": [
     { "type": "textMatch", "must": ["feat/bulk-send-v1-auto-tag"] },
     { "type": "modelSwitches", "min": 1 },
-    { "type": "toolErrors", "name": "read", "max": 0 }
+    { "type": "toolErrors", "name": "read", "max": 0, "excludePattern": "session-vars\\.json" },
+    { "type": "turns", "max": 4 }
   ],
   "gold": "切换后仍准确引用上一轮的分支名，并基于已读到的档案给出下一步，不重新问用户。"
 }

@@ -2,8 +2,8 @@
   "id": "l3-04",
   "layer": "l3",
   "weight": 3,
-  "title": "上下文压缩后仍记得关键 ID",
-  "why": "我历史上有 24 次 compaction。压缩后丢失 jobId / tagId / 分支名，在长流程里等于重来一遍。",
+  "title": "长会话多轮后仍记得关键 ID",
+  "why": "我历史上有 24 次 compaction。关键标识（jobId、tagId、分支名）在多轮之后丢失，长流程等于重来。实测 8 轮未触发压缩时，本 case 只验证跨轮记忆；要验证压缩后的回忆需要更长上下文（成本高，当前不默认覆盖）。",
   "worktree": true,
   "costHint": "high",
   "prompt": "记住这三个值，后面我会不断让你做别的事，最后要你原样复述：jobId=650000000000000000000001, tagId=650000000000000000000006, branch=feat/bulk-send-v1-auto-tag。确认后开始。",
@@ -18,8 +18,19 @@
   ],
   "allowedTurns": 10,
   "assertions": [
-    { "type": "compactionSurvived", "mustRecall": ["650000000000000000000001", "650000000000000000000006", "feat/bulk-send-v1-auto-tag"] },
-    { "type": "toolErrors", "name": "read", "max": 2 }
+    {
+      "type": "compactionSurvived",
+      "mustRecall": [
+        "650000000000000000000001",
+        "650000000000000000000006",
+        "feat/bulk-send-v1-auto-tag"
+      ]
+    },
+    {
+      "type": "toolErrors",
+      "name": "read",
+      "max": 2
+    }
   ],
   "gold": "三个值全程保真。若发生压缩，应把它们写进会话状态（session-vars 或任务档案）再引用，而不是靠记忆。"
 }
