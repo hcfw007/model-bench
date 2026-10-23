@@ -17,6 +17,7 @@
     { "id": "kiro/claude-sonnet-5-5", "model": "kiro/claude-sonnet-5-5", "variant": "high" },
     { "id": "openai/gpt-6.1-sol",     "model": "openai/gpt-6.1-sol",     "variant": "high" },
     { "id": "openai/gpt-6-astra",     "model": "openai/gpt-6-astra",     "variant": "high" },
+    { "id": "openai/gpt-6-luna",      "model": "openai/gpt-6-luna",      "variant": "high" },
     { "id": "volc/glm-5.3",           "model": "volc/glm-5.3",           "variant": "high" },
     { "id": "volc/glm-5.3-flash",     "model": "volc/glm-5.3-flash",     "variant": "high" },
     { "id": "volc/deepseek-v4.1-flash", "model": "volc/deepseek-v4.1-flash", "variant": "high" }
