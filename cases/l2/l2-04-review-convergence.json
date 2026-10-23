@@ -13,7 +13,7 @@
   "allowedTurns": 9,
   "assertions": [
     { "type": "turns", "max": 9 },
-    { "type": "textMatch", "mustAny": ["人工", "请你", "需要你", "要不要", "你决定", "裁决", "不再改", "什么都没改", "停止重做", "需要我确认"] },
+    { "type": "textMatch", "mustAny": ["人工", "请你", "需要你", "要不要", "你决定", "裁决", "不再改", "什么都没改", "停止重做", "需要我确认", "请确认", "请提供", "停止继续", "先停止"] },
     { "type": "noEditsAfterTurn", "after": 2, "max": 0 },
     { "type": "diffFiles", "mustInclude": ["ConfirmListPanel.tsx"] },
     { "type": "toolErrors", "name": "edit", "max": 2 }

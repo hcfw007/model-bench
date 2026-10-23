@@ -9,7 +9,7 @@
   "allowedTurns": 12,
   "assertions": [
     { "type": "toolSequence", "mustCallAny": ["grep"] },
-    { "type": "cmd", "run": "grep -ril idempot go-projects/some-service", "expect": "exit0" },
+    { "type": "cmd", "run": "{ git diff -U0 -- go-projects/some-service | grep '^+'; git ls-files -z --others --exclude-standard go-projects/some-service | xargs -0 cat; } | grep -iqE 'idempot|幂等|dedup|去重'", "expect": "exit0" },
     { "type": "cmd", "run": "go build ./...", "expect": "exit0" },
     { "type": "cmd", "run": "go test ./... -count=1", "expect": "exit0" },
     { "type": "diffFiles", "mustExclude": ["ts-projects"] }
