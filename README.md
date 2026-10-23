@@ -10,8 +10,11 @@
 > | 1 | `kiro/claude-sonnet-5-5` | **100.0** |
 > | 2 | `volc/deepseek-v4.1-flash` | **96.3** |
 > | 3 | `kiro/claude-opus-5-5` | **96.3** |
+> | 4 | `openai/gpt-6-luna` | **86.2** |
+> | 5 | `openai/gpt-6.1-sol` | **85.7** |
+> | 6 | `openai/gpt-6-astra` | **85.7** |
 >
-> 31 个用例 · 2026-10-22
+> 31 个用例 · 2026-10-23
 > <!-- RANKING:END -->
 
 一套在我真实 opencode 使用数据上反向设计出来的个人基准：1053 个会话、3651 轮输入、60036 条助手消息。

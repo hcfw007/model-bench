@@ -10,8 +10,11 @@
 > | 1 | `kiro/claude-sonnet-5-5` | **100.0** |
 > | 2 | `volc/deepseek-v4.1-flash` | **96.3** |
 > | 3 | `kiro/claude-opus-5-5` | **96.3** |
+> | 4 | `openai/gpt-6-luna` | **86.2** |
+> | 5 | `openai/gpt-6.1-sol` | **85.7** |
+> | 6 | `openai/gpt-6-astra` | **85.7** |
 >
-> 31 cases · 2026-10-22
+> 31 cases · 2026-10-23
 > <!-- RANKING:END -->
 
 A personal benchmark reverse-engineered from my own opencode usage: 1,053 sessions,
