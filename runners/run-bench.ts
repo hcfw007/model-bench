@@ -9,7 +9,7 @@ const SUPPORTED = new Set([
   'turns', 'toolCalls', 'toolErrors', 'toolSequence', 'subagents', 'nestedAgents',
   'compactionSurvived', 'modelSwitches', 'timeout', 'tokens',
   'textMatch', 'exactText', 'textRatioCJK', 'noForbidden',
-  'noEditsAfterTurn', 'noToolErrorMatching', 'textMatchRegex',
+  'noEditsAfterTurn', 'noToolErrorMatching', 'textMatchRegex', 'shellCommandMatches',
 ]);
 
 const args = process.argv.slice(2);

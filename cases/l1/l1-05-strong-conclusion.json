@@ -27,7 +27,10 @@
     },
     {
       "type": "shellCommandMatches",
-      "pattern": "grep|rg "
+      "pattern": "grep|rg ",
+      "orTools": [
+        "grep"
+      ]
     }
   ],
   "gold": "全仓 grep MarkTag：只有 contact-data-service 的实现，some-service 的 bulk_send_v1 目录零调用；poll.go 收尾只改状态。结论：功能未实现，不是配置问题。"

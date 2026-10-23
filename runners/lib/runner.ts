@@ -134,6 +134,10 @@ export function runCase(opts: RunOpts): CaseResult {
   if (trace) {
     const guard = assertTrajectory({ type: 'noForbidden' }, ctx);
     if (guard) assertions.push(guard);
+    if (caseDef.allowedTurns !== undefined) {
+      const budget = assertTrajectory({ type: 'turns', max: caseDef.allowedTurns }, ctx);
+      if (budget) assertions.push({ ...budget, type: 'allowedTurns' });
+    }
   }
   for (const a of caseDef.assertions) {
     const res = assertArtifact(a, ctx) ?? assertTrajectory(a, ctx);

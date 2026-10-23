@@ -87,7 +87,14 @@ export function assertTrajectory(a: Record<string, unknown>, ctx: AssertCtx): As
     const hits = t.toolCalls.filter(
       (c) => (c.name === 'shell' || c.name === 'bash') && re.test(String(c.input.command ?? '')),
     );
-    return { type, pass: hits.length > 0, detail: `matched=${hits.length} pattern=${a.pattern}` };
+    // orTools：直接调用这些专用工具也算命中（如 grep 工具与 shell 里的 grep 等价）
+    const orTools = (a.orTools as string[] | undefined) ?? [];
+    const toolHits = t.toolCalls.filter((c) => orTools.includes(c.name));
+    return {
+      type,
+      pass: hits.length + toolHits.length > 0,
+      detail: `matched=${hits.length} tools=${toolHits.length} pattern=${a.pattern}`,
+    };
   }
 
   if (type === 'noToolErrorMatching') {

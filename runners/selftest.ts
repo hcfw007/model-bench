@@ -54,6 +54,13 @@ nodeAssert.equal(assertTrajectory({ type: 'turns', max: 3 }, ctx(fakeTrace()))!.
 nodeAssert.equal(assertTrajectory({ type: 'turns', max: 2 }, ctx(fakeTrace()))!.pass, false);
 nodeAssert.equal(assertTrajectory({ type: 'toolErrors', name: 'read', max: 0 }, ctx(fakeTrace()))!.pass, true);
 nodeAssert.equal(assertTrajectory({ type: 'toolSequence', mustCallAny: ['grep'] }, ctx(fakeTrace()))!.pass, true);
+// shell 里的 grep 与 grep 工具都算检索
+const shellGrep = fakeTrace({ toolCalls: [{ name: 'shell', status: 'completed', input: { command: 'grep -rn MarkTag .' }, turn: 1 }] });
+const readOnly = fakeTrace({ toolCalls: [{ name: 'read', status: 'completed', input: {}, turn: 1 }] });
+nodeAssert.equal(assertTrajectory({ type: 'shellCommandMatches', pattern: 'grep|rg ', orTools: ['grep'] }, ctx(shellGrep))!.pass, true);
+nodeAssert.equal(assertTrajectory({ type: 'shellCommandMatches', pattern: 'grep|rg ', orTools: ['grep'] }, ctx(fakeTrace()))!.pass, true);
+nodeAssert.equal(assertTrajectory({ type: 'shellCommandMatches', pattern: 'grep|rg ' }, ctx(fakeTrace()))!.pass, false);
+nodeAssert.equal(assertTrajectory({ type: 'shellCommandMatches', pattern: 'grep|rg ', orTools: ['grep'] }, ctx(readOnly))!.pass, false);
 nodeAssert.equal(assertTrajectory({ type: 'subagents', min: 2, parallel: true }, ctx(fakeTrace()))!.pass, false);
 nodeAssert.equal(assertTrajectory({ type: 'tokens', inputMax: 3000 }, ctx(fakeTrace()))!.pass, true);
 // 收敛断言：第 2 轮之后不允许再编辑

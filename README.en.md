@@ -125,7 +125,7 @@ git clone --recursive https://github.com/hcfw007/model-bench.git
 cd model-bench
 node runners/selftest.ts                       # validate assertions and scoring
 node runners/run-bench.ts --dry-run            # validate all 31 cases
-node runners/run-bench.ts --layers l0 --models pro-opus,flash-sonnet
+node runners/run-bench.ts --layers l0 --models kiro/claude-opus-5-5,kiro/claude-sonnet-5-5
 ```
 
 No `npm install` needed. It only uses Node built-ins (`node:sqlite` and type stripping).

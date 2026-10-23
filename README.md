@@ -109,7 +109,7 @@ git clone --recursive https://github.com/hcfw007/model-bench.git
 cd model-bench
 node runners/selftest.ts                       # 校验断言与计分管线
 node runners/run-bench.ts --dry-run            # 校验 31 个 case
-node runners/run-bench.ts --layers l0 --models pro-opus,flash-sonnet
+node runners/run-bench.ts --layers l0 --models kiro/claude-opus-5-5,kiro/claude-sonnet-5-5
 ```
 
 只依赖 Node 内置模块（`node:sqlite` + type stripping），不需要 `npm install`。

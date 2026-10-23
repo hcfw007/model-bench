@@ -95,6 +95,7 @@
 | `toolCalls` | `name`, `max`/`min` | 某工具调用次数 |
 | `toolErrors` | `name`, `max` | 某工具失败次数（read 猜路径是重点） |
 | `toolSequence` | `mustCallAny[]`, `before` | 编辑前必须先做检索 |
+| `shellCommandMatches` | `pattern`（正则）, `orTools[]` | shell 命令命中正则，或调用过 `orTools` 里的工具 |
 | `subagents` | `min`, `parallel: true` | subagent 数量与并行度 |
 | `nestedAgents` | `minDepth` | 子会话再开子会话的层数 |
 | `compactionSurvived` | `mustRecall[]` | 压缩后仍能引用这些字符串 |
