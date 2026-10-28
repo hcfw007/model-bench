@@ -10,12 +10,20 @@
 > | 1 | `kiro/claude-sonnet-5-5` | **100.0** |
 > | 2 | `volc/deepseek-v4.1-flash` | **96.3** |
 > | 3 | `kiro/claude-opus-5-5` | **96.3** |
-> | 4 | `openai/gpt-6-luna` | **86.2** |
-> | 5 | `openai/gpt-6.1-sol` | **85.7** |
-> | 6 | `openai/gpt-6-astra` | **85.7** |
+> | 4 | `volc/kimi-k3.1-pro` | **87.8** |
+> | 5 | `openai/gpt-6-luna` | **86.2** |
+> | 6 | `openai/gpt-6.1-sol` | **85.7** |
+> | 7 | `openai/gpt-6-astra` | **85.7** |
+> | 8 | `volc/glm-5.3` | **83.5** |
+> | 9 | `mimo/mimo-v2.6-flash` | **81.4** |
+> | 10 | `volc/minimax-m3` | **78.1** |
+> | 11 | `volc/glm-5.3-flash` | **77.1** |
+> | 12 | `mimo/mimo-v2.6-pro` | **51.7** |
 >
-> 31 cases · 2026-10-23
+> 31 cases · 2026-10-28
 > <!-- RANKING:END -->
+
+[2026-10-28 supplemental report (Chinese)](reports/RANKING-2026-10-28.md): six additional models; the combined ranking retains historical results, not a same-day rerun.
 
 A personal benchmark reverse-engineered from my own opencode usage: 1,053 sessions,
 3,651 user turns, 60,036 assistant messages.

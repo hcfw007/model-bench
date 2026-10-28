@@ -1,6 +1,5 @@
 {
-  // 私有基准配置。模型一律用「档位」引用，不写死供应商名字。
-  // 档位文件：~/.config/opencode/models/{pro,flash}
+  // 私有基准配置。模型使用官方 provider/model ID，推理档位由 variant 指定。
   "bench": {
     "name": "nan-private-bench",
     "version": "1.0.0",
@@ -20,7 +19,11 @@
     { "id": "openai/gpt-6-luna",      "model": "openai/gpt-6-luna",      "variant": "high" },
     { "id": "volc/glm-5.3",           "model": "volc/glm-5.3",           "variant": "high" },
     { "id": "volc/glm-5.3-flash",     "model": "volc/glm-5.3-flash",     "variant": "high" },
-    { "id": "volc/deepseek-v4.1-flash", "model": "volc/deepseek-v4.1-flash", "variant": "high" }
+    { "id": "volc/minimax-m3",        "model": "volc/minimax-m3",        "variant": "high" },
+    { "id": "volc/kimi-k3.1-pro",      "model": "volc/kimi-k3.1-pro",      "variant": "high" },
+    { "id": "volc/deepseek-v4.1-flash", "model": "volc/deepseek-v4.1-flash", "variant": "high" },
+    { "id": "mimo/mimo-v2.6-pro",      "model": "mimo/mimo-v2.6-pro",      "variant": "high" },
+    { "id": "mimo/mimo-v2.6-flash",    "model": "mimo/mimo-v2.6-flash",    "variant": "high" }
   ],
 
   "run": {
