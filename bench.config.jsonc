@@ -15,6 +15,7 @@
     { "id": "kiro/claude-opus-5-5",   "model": "kiro/claude-opus-5-5",   "variant": "high" },
     { "id": "kiro/claude-sonnet-5-5", "model": "kiro/claude-sonnet-5-5", "variant": "high" },
     { "id": "openai/gpt-6.1-sol",     "model": "openai/gpt-6.1-sol",     "variant": "high" },
+    { "id": "openai/gpt-6.1-terra",   "model": "openai/gpt-6.1-terra",   "variant": "high" },
     { "id": "openai/gpt-6-astra",     "model": "openai/gpt-6-astra",     "variant": "high" },
     { "id": "openai/gpt-6-luna",      "model": "openai/gpt-6-luna",      "variant": "high" },
     { "id": "volc/glm-5.3",           "model": "volc/glm-5.3",           "variant": "high" },
@@ -22,12 +23,14 @@
     { "id": "volc/minimax-m3",        "model": "volc/minimax-m3",        "variant": "high" },
     { "id": "volc/kimi-k3.1-pro",      "model": "volc/kimi-k3.1-pro",      "variant": "high" },
     { "id": "volc/deepseek-v4.1-flash", "model": "volc/deepseek-v4.1-flash", "variant": "high" },
+    { "id": "volc/deepseek-v4.1-flash-economy", "model": "volc/deepseek-v4.1-flash-economy", "variant": "high" },
     { "id": "mimo/mimo-v2.6-pro",      "model": "mimo/mimo-v2.6-pro",      "variant": "high" },
     { "id": "mimo/mimo-v2.6-flash",    "model": "mimo/mimo-v2.6-flash",    "variant": "high" }
   ],
 
   "run": {
     "repeat": 1,
+    // 并行模型数；1 = 串行，>1 = 每模型独立克隆 mockrepo
     "concurrency": 2,
     "timeoutSec": 600,
     "maxTurns": 40,
