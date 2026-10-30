@@ -5,6 +5,7 @@
 import nodeAssert from 'node:assert';
 import { assertArtifact, matchFile } from './lib/assert-artifacts.ts';
 import { assertTrajectory } from './lib/assert-trajectory.ts';
+import { checkPartition, incompleteReasons, orderResults } from './lib/parallel.ts';
 import { scoreModel, leaderboard, type CaseResult } from './lib/score.ts';
 import type { Trace } from './lib/trace.ts';
 
@@ -111,4 +112,35 @@ nodeAssert.equal(matchFile('a/Components/ConfirmListPanel.tsx', 'ConfirmListPane
 nodeAssert.equal(matchFile('a/Components/RoomConfirmListPanel.tsx', 'ConfirmListPanel.tsx'), false);
 nodeAssert.equal(matchFile('ConfirmListPanel.tsx', 'ConfirmListPanel.tsx'), true);
 
-console.log('✓ selftest 全部通过：文本 / 轨迹 / 安全 / 计分 / 排行 / 产物断言');
+// 8. 并行调度：每个模型必须产出完整结果，合并顺序与串行一致
+function row(modelId: string, caseId: string): CaseResult {
+  return { caseId, layer: 'l0', modelId, pass: true, violation: false, weight: 1, turns: 1,
+    tokensInput: 1, tokensOutput: 1, durationSec: 1, toolErrors: {}, assertions: [] };
+}
+const caseIds = ['c1', 'c2', 'c3'];
+const parts = new Map<string, CaseResult[]>([
+  ['m1', caseIds.map((c) => row('m1', c))],
+  ['m2', caseIds.map((c) => row('m2', c))],
+]);
+const ordered = orderResults(['m1', 'm2'], caseIds, 1, parts);
+nodeAssert.deepEqual(ordered.map((r) => `${r.modelId}/${r.caseId}`),
+  ['m1/c1', 'm1/c2', 'm1/c3', 'm2/c1', 'm2/c2', 'm2/c3']);
+
+nodeAssert.deepEqual(checkPartition('m1', parts.get('m1')!, caseIds, 1), { ok: true });
+nodeAssert.equal(checkPartition('m1', parts.get('m1')!.slice(0, 2), caseIds, 1).ok, false, '缺用例必须判不完整');
+nodeAssert.equal(checkPartition('m1', [...parts.get('m1')!, row('m1', 'c1')], caseIds, 1).ok, false, '重复结果必须拒绝');
+nodeAssert.equal(checkPartition('m1', parts.get('m2')!, caseIds, 1).ok, false, '混入其他模型必须拒绝');
+nodeAssert.equal(checkPartition('m1', parts.get('m1')!, caseIds, 2).ok, false, '重复轮次不足必须拒绝');
+
+const skipped = incompleteReasons(['m1', 'm2'], new Map([['m1', parts.get('m1')!]]), new Map([['m2', '超时']]));
+nodeAssert.deepEqual(skipped, [{ modelId: 'm2', reason: '超时' }]);
+
+// repeat > 1：同一 case 的出现次序必须按轮次还原
+const repeated = new Map<string, CaseResult[]>([
+  ['m1', [row('m1', 'c1'), row('m1', 'c2'), row('m1', 'c1'), row('m1', 'c2')]],
+]);
+const twice = orderResults(['m1'], ['c1', 'c2'], 2, repeated);
+nodeAssert.deepEqual(twice.map((r) => r.caseId), ['c1', 'c2', 'c1', 'c2']);
+nodeAssert.deepEqual(checkPartition('m1', repeated.get('m1')!, ['c1', 'c2'], 2), { ok: true });
+
+console.log('✓ selftest 全部通过：文本 / 轨迹 / 安全 / 计分 / 排行 / 产物断言 / 并行合并');

@@ -1,8 +1,12 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { loadConfig, resolveModelRef } from './lib/config.ts';
-import { loadCases, runCase, type CaseDef } from './lib/runner.ts';
-import { failureReport, leaderboard, scoreModel, type CaseResult } from './lib/score.ts';
+import { loadConfig, type ModelSpec } from './lib/config.ts';
+import { loadCases, type CaseDef } from './lib/runner.ts';
+import { runSerialModels } from './lib/run-serial.ts';
+import { runParallelModels } from './lib/run-parallel.ts';
+import { writeFinalReports } from './lib/report.ts';
+import { leaderboard, type ModelScore } from './lib/score.ts';
+import type { RunMeta } from './lib/parallel.ts';
 
 const SUPPORTED = new Set([
   'cmd', 'diffFiles', 'diffLines', 'fileContains', 'fileNotContains',
@@ -22,18 +26,31 @@ function list(name: string, fallback: string): string[] {
 }
 
 const root = resolve(import.meta.dirname, '..');
-const cfg = loadConfig(resolve(root, 'bench.config.jsonc'));
+const configPath = resolve(root, 'bench.config.jsonc');
+const cfg = loadConfig(configPath);
 const layers = list('layers', Object.keys(cfg.layers).filter((k) => cfg.layers[k]).join(','));
 const only = list('cases', '');
-const modelIds = list('models', cfg.models.map((m) => m.id).join(','));
+const requested = [...new Set(list('models', cfg.models.map((m) => m.id).join(',')))];
 const repeat = Number(arg('repeat', String(cfg.run.repeat)));
 const dryRun = args.includes('--dry-run');
+const isWorker = process.env.OPENCODE_BENCH_WORKER === '1';
+const concurrency = Math.max(1, Math.floor(Number(arg('concurrency', String(cfg.run.concurrency))) || 1));
 
 const casesRoot = resolve(root, 'cases');
 const cases: CaseDef[] = loadCases(casesRoot, layers, only);
-
 if (cases.length === 0) {
   console.error('没有匹配的 case。');
+  process.exit(1);
+}
+
+const specs: ModelSpec[] = [];
+for (const id of requested) {
+  const spec = cfg.models.find((m) => m.id === id);
+  if (spec) specs.push(spec);
+  else console.error(`跳过未知模型: ${id}`);
+}
+if (specs.length === 0) {
+  console.error('没有可用模型。');
   process.exit(1);
 }
 
@@ -55,8 +72,9 @@ if (dryRun) {
     console.log(`  ${layer.toUpperCase()}  ${String(rows.length).padStart(2)} cases  weight=${weight}`);
     for (const c of rows) console.log(`      - ${c.id}  ${c.title}`);
   }
-  console.log(`\n  模型: ${modelIds.join(', ')}`);
-  console.log(`  预计执行: ${modelIds.length * cases.length * repeat} 次会话`);
+  console.log(`\n  模型: ${specs.map((s) => s.id).join(', ')}`);
+  console.log(`  预计执行: ${specs.length * cases.length * repeat} 次会话`);
+  console.log(`  并行: ${concurrency}${concurrency > 1 ? '（每模型独立克隆 mockrepo）' : '（串行，不使用克隆）'}`);
   console.log(bad === 0 ? '\n  ✓ 所有断言类型可执行\n' : `\n  ✗ ${bad} 个 case 有问题\n`);
   process.exit(bad === 0 ? 0 : 1);
 }
@@ -64,43 +82,40 @@ if (dryRun) {
 const stamp = new Date().toISOString().replace(/[:.]/g, '-');
 const outDir = resolve(root, arg('out', `reports/${stamp}`));
 mkdirSync(outDir, { recursive: true });
+const startedAt = new Date();
 
-const results: CaseResult[] = [];
-const total = modelIds.length * cases.length * repeat;
-let done = 0;
+if (!isWorker) console.log(`并行度 ${concurrency}｜模型 ${specs.length} 个｜用例 ${cases.length} 个｜重复 ${repeat} 次`);
+let skipped: Array<{ modelId: string; reason: string }> = [];
+let meta: RunMeta;
+let scores: ModelScore[];
 
-for (const modelId of modelIds) {
-  const spec = cfg.models.find((m) => m.id === modelId);
-  if (!spec) {
-    console.error(`跳过未知模型: ${modelId}`);
-    continue;
-  }
-  const modelRef = resolveModelRef(spec.model) + (spec.variant ? `#${spec.variant}` : '');
-  for (let r = 0; r < repeat; r++) {
-    for (const c of cases) {
-      done += 1;
-      process.stdout.write(`[${done}/${total}] ${modelId} ${c.id} ... `);
-      try {
-        const res = runCase({ cfg, casesRoot, caseDef: c, modelId, modelRef, idx: r });
-        results.push(res);
-        console.log(`${res.pass ? 'PASS' : 'FAIL'} (${res.turns}轮 ${res.durationSec}s)`);
-      } catch (e) {
-        console.log(`ERROR ${(e as Error).message}`);
-        results.push({
-          caseId: c.id, layer: c.layer, modelId, pass: false, violation: false,
-          weight: c.weight ?? 1, turns: 0, tokensInput: 0, tokensOutput: 0, durationSec: 0,
-          toolErrors: {}, assertions: [], error: (e as Error).message,
-        });
-      }
-      writeFileSync(resolve(outDir, 'results.partial.json'), JSON.stringify(results, null, 2));
-    }
-  }
+if (isWorker || concurrency === 1) {
+  const results = runSerialModels({ cfg, casesRoot, cases, specs, repeat, outDir });
+  const finishedAt = new Date();
+  meta = {
+    mode: 'serial',
+    concurrency: 1,
+    startedAt: startedAt.toISOString(),
+    finishedAt: finishedAt.toISOString(),
+    wallSec: Math.round((finishedAt.getTime() - startedAt.getTime()) / 1000),
+    workers: specs.map((s) => ({ modelId: s.id, status: 'complete' as const })),
+  };
+  scores = writeFinalReports({ outDir, cfg, results, meta, skipped });
+} else {
+  const outcome = await runParallelModels({
+    cfg, configPath, repoRoot: root, cases, specs, repeat, concurrency, layers, only, outDir,
+  });
+  skipped = outcome.skipped;
+  meta = outcome.meta;
+  scores = writeFinalReports({ outDir, cfg, results: outcome.results, meta, skipped });
 }
 
-const scores = modelIds.map((id) => scoreModel(id, results, cfg.weights));
-writeFileSync(resolve(outDir, 'results.json'), JSON.stringify({ config: cfg, scores, results }, null, 2));
-writeFileSync(resolve(outDir, 'leaderboard.md'), `# Leaderboard\n\n\`\`\`\n${leaderboard(scores)}\n\`\`\`\n`);
-writeFileSync(resolve(outDir, 'failures.md'), failureReport(results));
+if (skipped.length > 0) {
+  console.error(`\n${skipped.length} 个模型未完成，已排除出评分：${skipped.map((s) => s.modelId).join(', ')}`);
+  process.exitCode = 1;
+}
 
-console.log(`\n${leaderboard(scores)}\n`);
-console.log(`报告目录: ${outDir}`);
+if (!isWorker) {
+  console.log(`\n${leaderboard(scores)}\n`);
+  console.log(`报告目录: ${outDir}`);
+}
