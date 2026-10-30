@@ -18,18 +18,20 @@
 > | 9 | `mimo/mimo-v2.6-flash` | **81.4** |
 > | 10 | `volc/minimax-m3` | **78.1** |
 > | 11 | `volc/glm-5.3-flash` | **77.1** |
-> | 12 | `mimo/mimo-v2.6-pro` | **51.7** |
+> | 12 | `volc/deepseek-v4.1-flash-economy` | **76.8** |
+> | 13 | `openai/gpt-6.1-terra` | **67.0** |
+> | 14 | `mimo/mimo-v2.6-pro` | **51.7** |
 >
-> 31 cases · 2026-10-28
+> 31 cases · 2026-10-30
 > <!-- RANKING:END -->
 
-[2026-10-28 supplemental report (Chinese)](reports/RANKING-2026-10-28.md): six additional models; the combined ranking retains historical results, not a same-day rerun.
+**Every score comes from a single run (31 cases × 1).** Single-run noise can be large, so score gaps are not a stable capability verdict; use them to spot trends for personal model selection.
 
 A personal benchmark reverse-engineered from my own opencode usage: 1,053 sessions,
 3,651 user turns, 60,036 assistant messages.
 
 It does not try to be fair. It only tries to match my own workflow: a multi-service
-monorepo, SOP-driven iterations, fan-out to subagents, frequent model switching,
+monorepo, SOP-driven iterations, parallel subagent dispatch, frequent model switching,
 and an absolute requirement to converge.
 
 ## Scope and limits
@@ -75,7 +77,7 @@ The task shapes were not invented. They were inferred from session history:
 | L0 Channel | 10 | Connectivity, instruction following, refusal of dangerous commands, language discipline |
 | L1 Single-point | 20 | Cross-service localization, minimal edits, evidence gathering, not over-claiming |
 | L2 Pipeline | 40 | End-to-end SOP execution; the metric is rework turns |
-| L3 Harness | 25 | Subagent fan-out / two-level nesting, compaction recall, permission boundaries, tool-failure recovery |
+| L3 Harness | 25 | Parallel subagent dispatch / two-level nesting, compaction recall, permission boundaries, tool-failure recovery |
 | Cost | 5 | Tokens and duration, tie-breaker only |
 
 Scores are reported per layer because they answer different questions:
@@ -137,9 +139,17 @@ cd model-bench
 node runners/selftest.ts                       # validate assertions and scoring
 node runners/run-bench.ts --dry-run            # validate all 31 cases
 node runners/run-bench.ts --layers l0 --models kiro/claude-opus-5-5,kiro/claude-sonnet-5-5
+node runners/run-bench.ts --models volc/glm-5.3,volc/kimi-k3.1-pro --concurrency 2   # one mockrepo clone per model
 ```
 
 No `npm install` needed. It only uses Node built-ins (`node:sqlite` and type stripping).
+
+When `--concurrency` (default: `run.concurrency`) is greater than 1, models run in parallel,
+each on its own test bed (code copied, mockrepo cloned, removed afterwards); cases inside a
+model stay sequential. Parallelism only changes scheduling: timeouts, assertions and scoring
+are unchanged, and results are merged in a fixed order. A model missing any case is excluded
+from scoring (`incomplete.md`). All models in one run share the same concurrency; compare
+across runs only at the same concurrency.
 
 Results land in `reports/<timestamp>/leaderboard.md` and `failures.md`.
 

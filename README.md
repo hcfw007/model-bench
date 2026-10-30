@@ -18,16 +18,18 @@
 > | 9 | `mimo/mimo-v2.6-flash` | **81.4** |
 > | 10 | `volc/minimax-m3` | **78.1** |
 > | 11 | `volc/glm-5.3-flash` | **77.1** |
-> | 12 | `mimo/mimo-v2.6-pro` | **51.7** |
+> | 12 | `volc/deepseek-v4.1-flash-economy` | **76.8** |
+> | 13 | `openai/gpt-6.1-terra` | **67.0** |
+> | 14 | `mimo/mimo-v2.6-pro` | **51.7** |
 >
-> 31 个用例 · 2026-10-28
+> 31 个用例 · 2026-10-30
 > <!-- RANKING:END -->
 
-[2026-10-28 补测报告](reports/RANKING-2026-10-28.md)：新增 6 款模型；总排行保留历史成绩，并非同日重测。
+**注意：所有成绩都只跑了 1 次（31 个用例 × 1 次）。** 单次结果的波动可能很大，分数差异不足以作为稳定的能力结论，只适合个人选型时看趋势。
 
 一套在我真实 opencode 使用数据上反向设计出来的个人基准：1053 个会话、3651 轮输入、60036 条助手消息。
 
-我不追求公平，只追求贴合自己的场景：多服务 monorepo、SOP 驱动、subagent 扇出、频繁换模型、必须收敛。
+我不追求公平，只追求贴合自己的场景：多服务 monorepo、SOP 驱动、subagent 并行派发、频繁换模型、必须收敛。
 
 ## 定位与边界
 
@@ -71,7 +73,7 @@
 | L0 通道 | 10 | 连通、指令服从、危险操作拒绝、语言纪律 |
 | L1 单点 | 20 | 多服务定位、最小编辑、取证、缺陷定性不越界 |
 | L2 流水线 | 40 | SOP 端到端，核心指标是返工轮次 |
-| L3 Harness | 25 | subagent 扇出/二层嵌套、压缩恢复、权限边界、错误自愈 |
+| L3 Harness | 25 | subagent 并行派发/二层嵌套、压缩恢复、权限边界、错误自愈 |
 | 成本 | 5 | token 与时长，仅用于同分排序 |
 
 分层输出，因为用途不同：
@@ -121,9 +123,12 @@ cd model-bench
 node runners/selftest.ts                       # 校验断言与计分管线
 node runners/run-bench.ts --dry-run            # 校验 31 个 case
 node runners/run-bench.ts --layers l0 --models kiro/claude-opus-5-5,kiro/claude-sonnet-5-5
+node runners/run-bench.ts --models volc/glm-5.3,volc/kimi-k3.1-pro --concurrency 2   # 每模型独立克隆 mockrepo
 ```
 
 只依赖 Node 内置模块（`node:sqlite` + type stripping），不需要 `npm install`。
+
+`--concurrency`（默认取 `run.concurrency`）大于 1 时并行跑不同模型：每个模型一份独立测试床，模型内 case 仍串行，跑完删除；`1` 保持原串行行为。并行只改调度，超时、断言、评分不变，结果按固定顺序合并。缺用例的模型会被整体排除出评分（`incomplete.md`）。同一次 run 内所有模型共用同一并发度，跨 run 比较请保持一致。
 
 输出 `reports/<timestamp>/leaderboard.md` 与 `failures.md`。
 
