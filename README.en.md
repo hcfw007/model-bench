@@ -19,10 +19,10 @@
 > | 10 | `volc/minimax-m3` | **78.1** |
 > | 11 | `volc/glm-5.3-flash` | **77.1** |
 > | 12 | `volc/deepseek-v4.1-flash-economy` | **76.8** |
-> | 13 | `openai/gpt-6.1-terra` | **67.0** |
+> | 13 | `openai/gpt-6.1-terra` | **65.9** |
 > | 14 | `mimo/mimo-v2.6-pro` | **51.7** |
 >
-> 31 cases · 2026-10-30
+> 31 cases · 2026-11-09
 > <!-- RANKING:END -->
 
 **Every score comes from a single run (31 cases × 1).** Single-run noise can be large, so score gaps are not a stable capability verdict; use them to spot trends for personal model selection.
