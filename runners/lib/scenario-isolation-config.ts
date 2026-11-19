@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { lstatSync, readFileSync, realpathSync } from 'node:fs';
-import { dirname, isAbsolute, normalize } from 'node:path';
+import { dirname, isAbsolute, normalize, resolve, sep } from 'node:path';
 
 import { record } from './scenario-json.ts';
 
@@ -37,6 +37,7 @@ export function loadIsolationConfig(path: string, modelId: string): IsolationCon
   if (homes.some((home, index) => homes.some((other, peer) => index !== peer
     && (home === other || home.startsWith(`${other}/`))))) throw new Error('Model HOME paths must be distinct and disjoint');
   const home = privateModelHome(input.modelHomes[modelId], uid);
+  assertDisjointModelHome(home, [process.cwd()]);
   const providerSocket = input.providerSocket;
   if (providerSocket !== undefined) {
     if (typeof providerSocket !== 'string' || /[,\r\n]/.test(providerSocket) || realpathSync(providerSocket) !== providerSocket) {
@@ -49,6 +50,15 @@ export function loadIsolationConfig(path: string, modelId: string): IsolationCon
   const isolationId = createHash('sha256').update(source).update(readFileSync(input.podman)).digest('hex');
   return { isolationId, podman: input.podman, image: input.image, imageId: input.imageId,
     program: input.program, version: input.version, modelId, home, providerSocket };
+}
+
+export function assertDisjointModelHome(home: string, protectedPaths: readonly string[]): void {
+  for (const item of protectedPaths) {
+    const path = resolve(item);
+    if (path === home || path.startsWith(`${home}${sep}`) || home.startsWith(`${path}${sep}`)) {
+      throw new Error(`Isolated model HOME must not overlap a protected path: ${path}`);
+    }
+  }
 }
 
 function privateModelHome(home: unknown, uid: number): string {
