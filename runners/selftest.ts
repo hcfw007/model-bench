@@ -143,4 +143,9 @@ const twice = orderResults(['m1'], ['c1', 'c2'], 2, repeated);
 nodeAssert.deepEqual(twice.map((r) => r.caseId), ['c1', 'c2', 'c1', 'c2']);
 nodeAssert.deepEqual(checkPartition('m1', repeated.get('m1')!, ['c1', 'c2'], 2), { ok: true });
 
-console.log('✓ selftest 全部通过：文本 / 轨迹 / 安全 / 计分 / 排行 / 产物断言 / 并行合并');
+await (await import('./checks/artifacts.ts')).runArtifactTests();
+await (await import('./checks/trace.ts')).runTraceTests();
+await (await import('./checks/scenarios.ts')).runScenarioTests();
+await (await import('./checks/runner.ts')).runRunnerTests();
+await (await import('./checks/protocol.ts')).runProtocolTests();
+console.log('✓ selftest 全部通过：基础断言 / 净产物 / 逐轮轨迹 / 离线场景 / 编排 / 发布协议');
