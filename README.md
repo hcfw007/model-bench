@@ -15,14 +15,16 @@
 > | 6 | `openai/gpt-6.1-sol` | **85.7** |
 > | 7 | `openai/gpt-6-astra` | **85.7** |
 > | 8 | `volc/glm-5.3` | **83.5** |
-> | 9 | `mimo/mimo-v2.6-flash` | **81.4** |
-> | 10 | `volc/minimax-m3` | **78.1** |
-> | 11 | `volc/glm-5.3-flash` | **77.1** |
-> | 12 | `volc/deepseek-v4.1-flash-economy` | **76.8** |
-> | 13 | `openai/gpt-6.1-terra` | **65.9** |
-> | 14 | `mimo/mimo-v2.6-pro` | **51.7** |
+> | 9 | `openai/gpt-6.2-sol` | **82.0** |
+> | 10 | `mimo/mimo-v2.6-flash` | **81.4** |
+> | 11 | `volc/minimax-m3` | **78.1** |
+> | 12 | `volc/glm-5.3-flash` | **77.1** |
+> | 13 | `volc/deepseek-v4.1-flash-economy` | **76.8** |
+> | 14 | `openai/gpt-6.2-astra` | **76.1** |
+> | 15 | `openai/gpt-6.1-terra` | **65.9** |
+> | 16 | `mimo/mimo-v2.6-pro` | **51.7** |
 >
-> 31 个用例 · 2026-11-09
+> 31 个用例 · 2026-11-19
 > <!-- RANKING:END -->
 
 **注意：所有成绩都只跑了 1 次（31 个用例 × 1 次）。** 单次结果的波动可能很大，分数差异不足以作为稳定的能力结论，只适合个人选型时看趋势。

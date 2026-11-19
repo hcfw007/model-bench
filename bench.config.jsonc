@@ -14,6 +14,8 @@
     // id 一律使用官方模型 id（provider/model），不加本地别名
     { "id": "kiro/claude-opus-5-5",   "model": "kiro/claude-opus-5-5",   "variant": "high" },
     { "id": "kiro/claude-sonnet-5-5", "model": "kiro/claude-sonnet-5-5", "variant": "high" },
+    { "id": "openai/gpt-6.2-sol",     "model": "openai/gpt-6.2-sol",     "variant": "high" },
+    { "id": "openai/gpt-6.2-astra",   "model": "openai/gpt-6.2-astra",   "variant": "high" },
     { "id": "openai/gpt-6.1-sol",     "model": "openai/gpt-6.1-sol",     "variant": "high" },
     { "id": "openai/gpt-6.1-terra",   "model": "openai/gpt-6.1-terra",   "variant": "high" },
     { "id": "openai/gpt-6-astra",     "model": "openai/gpt-6-astra",     "variant": "high" },

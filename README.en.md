@@ -15,14 +15,16 @@
 > | 6 | `openai/gpt-6.1-sol` | **85.7** |
 > | 7 | `openai/gpt-6-astra` | **85.7** |
 > | 8 | `volc/glm-5.3` | **83.5** |
-> | 9 | `mimo/mimo-v2.6-flash` | **81.4** |
-> | 10 | `volc/minimax-m3` | **78.1** |
-> | 11 | `volc/glm-5.3-flash` | **77.1** |
-> | 12 | `volc/deepseek-v4.1-flash-economy` | **76.8** |
-> | 13 | `openai/gpt-6.1-terra` | **65.9** |
-> | 14 | `mimo/mimo-v2.6-pro` | **51.7** |
+> | 9 | `openai/gpt-6.2-sol` | **82.0** |
+> | 10 | `mimo/mimo-v2.6-flash` | **81.4** |
+> | 11 | `volc/minimax-m3` | **78.1** |
+> | 12 | `volc/glm-5.3-flash` | **77.1** |
+> | 13 | `volc/deepseek-v4.1-flash-economy` | **76.8** |
+> | 14 | `openai/gpt-6.2-astra` | **76.1** |
+> | 15 | `openai/gpt-6.1-terra` | **65.9** |
+> | 16 | `mimo/mimo-v2.6-pro` | **51.7** |
 >
-> 31 cases · 2026-11-09
+> 31 cases · 2026-11-19
 > <!-- RANKING:END -->
 
 **Every score comes from a single run (31 cases × 1).** Single-run noise can be large, so score gaps are not a stable capability verdict; use them to spot trends for personal model selection.
