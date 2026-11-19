@@ -2,9 +2,15 @@
 
 [中文](README.md) | **English**
 
-> ### 📊 [v1.0 rankings](rankings/v1.0.md)
+> **[v1.1 rankings](rankings/v1.1.md)** · [Cases and scoring protocol (Chinese)](docs/v1.1-design.md)
 >
 > <!-- RANKING:START -->
+> No formal v1.1 scores yet.
+> <!-- RANKING:END -->
+>
+> ### 📊 [Final v1.0 rankings (archived)](rankings/v1.0.md)
+>
+> <!-- ARCHIVED:v1.0:START -->
 > | # | Model | Score |
 > |---|---|---|
 > | 1 | `kiro/claude-sonnet-5-5` | **100.0** |
@@ -25,9 +31,9 @@
 > | 16 | `mimo/mimo-v2.6-pro` | **51.7** |
 >
 > 31 cases · 2026-11-19
-> <!-- RANKING:END -->
+> <!-- ARCHIVED:v1.0:END -->
 
-**Every score comes from a single run (31 cases × 1).** Single-run noise can be large, so score gaps are not a stable capability verdict; use them to spot trends for personal model selection.
+**Archived v1.0 scores are from 31 cases × 1 run. v1.1 uses 33 cases × 3 runs.** The two versions are ranked separately; trials are not published as scores.
 
 A personal benchmark reverse-engineered from my own opencode usage: 1,053 sessions,
 3,651 user turns, 60,036 assistant messages.
@@ -80,7 +86,7 @@ The task shapes were not invented. They were inferred from session history:
 | L1 Single-point | 20 | Cross-service localization, minimal edits, evidence gathering, not over-claiming |
 | L2 Pipeline | 40 | End-to-end SOP execution; the metric is rework turns |
 | L3 Harness | 25 | Parallel subagent dispatch / two-level nesting, compaction recall, permission boundaries, tool-failure recovery |
-| Cost | 5 | Tokens and duration, tie-breaker only |
+| Cost | Unscored | Report tokens, duration and timeouts separately; normalize the four scoring layers by 95. Exact ties share a rank |
 
 Scores are reported per layer because they answer different questions:
 
@@ -104,7 +110,7 @@ That yields three assertion families, all programmatic:
 2. **Trajectory**: tool call sequence, read failures, subagent count and parallelism, turn count, forbidden commands
 3. **Text**: required IDs, forbidden over-claiming phrases (regex blacklist with negation-context exemption)
 
-All 31 cases use hard assertions. There is no LLM judge — anything requiring subjective
+All 33 cases use hard assertions. There is no LLM judge — anything requiring subjective
 scoring stays out of this benchmark. See `judges/README.md`.
 
 ## Layout
@@ -130,8 +136,9 @@ versions, so scores are not directly comparable.
 | Version | Cases | Released | Ranking |
 |---|---|---|---|
 | v1.0 | 31 | 2026-10-22 | [View](rankings/v1.0.md) |
+| v1.1 | 33 | Awaiting formal scores | [View](rankings/v1.1.md) |
 
-Current config version: `v1.0.0` (`bench.version` in `bench.config.jsonc`).
+Current config version: `1.1.0` (`bench.version` in `bench.config.jsonc`).
 
 ## Running it
 
@@ -139,9 +146,9 @@ Current config version: `v1.0.0` (`bench.version` in `bench.config.jsonc`).
 git clone --recursive https://github.com/hcfw007/model-bench.git
 cd model-bench
 node runners/selftest.ts                       # validate assertions and scoring
-node runners/run-bench.ts --dry-run            # validate all 31 cases
+node runners/run-bench.ts --dry-run            # validate all 33 cases offline
 node runners/run-bench.ts --layers l0 --models kiro/claude-opus-5-5,kiro/claude-sonnet-5-5
-node runners/run-bench.ts --models volc/glm-5.3,volc/kimi-k3.1-pro --concurrency 2   # one mockrepo clone per model
+node runners/run-bench.ts --mode formal --dry-run --models openai/gpt-6.2-sol,openai/gpt-6.2-astra   # offline validation
 ```
 
 No `npm install` needed. It only uses Node built-ins (`node:sqlite` and type stripping).
@@ -155,7 +162,9 @@ across runs only at the same concurrency.
 
 Results land in `reports/<timestamp>/leaderboard.md` and `failures.md`.
 
-Per-case status and known limits live in [`reports/COVERAGE.md`](reports/COVERAGE.md).
+Formal execution requires a non-root Linux host with a verified rootless Podman deployment. See the [release guide](docs/v1.1-release-ops.md). Ordinary trials are not eligible for publication.
+
+[`reports/COVERAGE.md`](reports/COVERAGE.md) records historical v1.0 runs, not v1.1 validation.
 
 ## Known calibration points
 

@@ -22,19 +22,24 @@ open a new version instead of editing historical tables in place.
 | Version | Cases | Released | Link |
 |---|---|---|---|
 | v1.0 | 31 | 2026-10-22 | [v1.0.md](v1.0.md) |
+| v1.1 | 33 | Awaiting formal scores | [v1.1.md](v1.1.md) |
 
 ## Adding a model
 
+Prepare the isolation config and matching evidence directory following the [release guide](../docs/v1.1-release-ops.md).
+
 ```bash
 # 1. add an entry to models in bench.config.jsonc
-# 2. run the full set under the same version
-node runners/run-bench.ts --models <model-id> --out reports/<date>-<model>
+# 2. run the full set with all models intended for this publication
+node runners/run-bench.ts --mode formal --models <model-a>,<model-b> --out reports/<run> --isolation-config /path/to/backend.json
 
-# 3. merge into that version's aggregate
-node runners/merge-results.ts reports/<version-run-dir> reports/<date>-<model>
+# 3. only for repairable collection/service errors: repair failed slots under the same protocol
+node runners/run-bench.ts --mode formal --repair reports/<run> --out reports/<repair> --isolation-config /path/to/backend.json
+node runners/merge-results.ts reports/<run> reports/<repair>
 
-# 4. re-render and update the version markdown by hand
-node runners/render-report.ts reports/<version-run-dir>
+# 4. re-render and publish the eligible results
+node runners/render-report.ts reports/<run>
+node runners/sync-rankings.ts reports/<run> --version v1.1 --evidence reports/<evidence>
 ```
 
 If a model has not run a given version, leave its column empty. Never fill it with

@@ -15,7 +15,7 @@
     { "type": "turns", "max": 9 },
     { "type": "textMatch", "mustAny": ["人工", "请你", "需要你", "要不要", "你决定", "裁决", "不再改", "什么都没改", "停止重做", "需要我确认", "请确认", "请提供", "停止继续", "先停止"] },
     { "type": "noEditsAfterTurn", "after": 2, "max": 0 },
-    { "type": "diffFiles", "mustInclude": ["ConfirmListPanel.tsx"] },
+    { "type": "diffFiles", "mustInclude": ["ts-projects/web-console/src/Pages/BulkSendV1/Components/ConfirmListPanel.tsx"] },
     { "type": "toolErrors", "name": "edit", "max": 2 }
   ],
   "gold": "第一次就改对（消费 canConfirm）；第二次复述自己改了哪里并给出验证方式；第三次停止重做，归因（改动未提交 / 评审看的是旧版本）并请人工决定下一步，而不是继续盲目重改。"

@@ -13,7 +13,7 @@
     { "type": "cmd", "run": "go test ./... -count=1", "expect": "exit0" },
     { "type": "cmd", "run": "go test ./go-projects/some-service/internal/biz/bulk_send_v1/ -run 'TestConvergesWhenSomeTargetsFailed|TestMarkTagOnlyForSentTargetsAndIdempotent' -count=1 -v > .hidden-test.log 2>&1 && grep -q 'PASS: TestConvergesWhenSomeTargetsFailed' .hidden-test.log && grep -q 'PASS: TestMarkTagOnlyForSentTargetsAndIdempotent' .hidden-test.log && rm -f .hidden-test.log", "expect": "exit0" },
     { "type": "fileContains", "path": "go-projects/some-service/internal/biz/bulk_send_v1/poll.go", "pattern": "MarkTag|SentExternalIDs" },
-    { "type": "diffFiles", "mustExclude": ["auth-service", "contact-data-service"] }
+    { "type": "diffFiles", "mustExclude": ["go-projects/auth-service", "go-projects/contact-data-service"] }
   ],
   "gold": "收敛条件改为 sent + failed == total（而不是简单退回 >0）；FINISHED 分支仅当 HasMarkTag() 时对 SentExternalIDs() 打标；用已有错误边界兜住打标失败；幂等靠已打标标记或 sent 集合快照。"
 }

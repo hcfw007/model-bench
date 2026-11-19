@@ -2,7 +2,7 @@
   // 私有基准配置。模型使用官方 provider/model ID，推理档位由 variant 指定。
   "bench": {
     "name": "nan-private-bench",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "opencodeBin": "opencode",
     "dbPath": "~/.local/share/opencode/opencode.db",
     "mockRepo": "./mockrepo",
@@ -20,18 +20,20 @@
     { "id": "openai/gpt-6.1-terra",   "model": "openai/gpt-6.1-terra",   "variant": "high" },
     { "id": "openai/gpt-6-astra",     "model": "openai/gpt-6-astra",     "variant": "high" },
     { "id": "openai/gpt-6-luna",      "model": "openai/gpt-6-luna",      "variant": "high" },
-    { "id": "volc/glm-5.3",           "model": "volc/glm-5.3",           "variant": "high" },
-    { "id": "volc/glm-5.3-flash",     "model": "volc/glm-5.3-flash",     "variant": "high" },
-    { "id": "volc/minimax-m3",        "model": "volc/minimax-m3",        "variant": "high" },
-    { "id": "volc/kimi-k3.1-pro",      "model": "volc/kimi-k3.1-pro",      "variant": "high" },
-    { "id": "volc/deepseek-v4.1-flash", "model": "volc/deepseek-v4.1-flash", "variant": "high" },
-    { "id": "volc/deepseek-v4.1-flash-economy", "model": "volc/deepseek-v4.1-flash-economy", "variant": "high" },
+    { "id": "volc-a/glm-5.3",           "model": "volc-a/glm-5.3",           "variant": "high" },
+    { "id": "volc-a/glm-5.3-flash",     "model": "volc-a/glm-5.3-flash",     "variant": "high" },
+    { "id": "volc-a/minimax-m3",        "model": "volc-a/minimax-m3",        "variant": "high" },
+    { "id": "volc-a/kimi-k3.1-pro",     "model": "volc-a/kimi-k3.1-pro",     "variant": "high" },
+    { "id": "volc-a/deepseek-v4.1-flash", "model": "volc-a/deepseek-v4.1-flash", "variant": "high" },
+    { "id": "volc-a/deepseek-v4.1-flash-economy", "model": "volc-a/deepseek-v4.1-flash-economy", "variant": "high" },
     { "id": "mimo/mimo-v2.6-pro",      "model": "mimo/mimo-v2.6-pro",      "variant": "high" },
     { "id": "mimo/mimo-v2.6-flash",    "model": "mimo/mimo-v2.6-flash",    "variant": "high" }
   ],
 
   "run": {
-    "repeat": 1,
+    "repeat": 3,
+    "switchModel": "openai/gpt-6.2-astra#high",
+    "switchFallback": "openai/gpt-6.2-sol#high",
     // 并行模型数；1 = 串行，>1 = 每模型独立克隆 mockrepo
     "concurrency": 2,
     "timeoutSec": 600,

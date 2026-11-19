@@ -3,7 +3,7 @@
  * 运行：node runners/selftest.ts
  */
 import nodeAssert from 'node:assert';
-import { assertArtifact, matchFile } from './lib/assert-artifacts.ts';
+import { assertArtifact } from './lib/assert-artifacts.ts';
 import { assertTrajectory } from './lib/assert-trajectory.ts';
 import { checkPartition, incompleteReasons, orderResults } from './lib/parallel.ts';
 import { scoreModel, leaderboard, type CaseResult } from './lib/score.ts';
@@ -107,10 +107,7 @@ nodeAssert.equal(fileHit!.pass, true);
 nodeAssert.equal(assertTrajectory({ type: 'textMatchRegex', mustMatch: ['(未|还没|尚未|无法|待|不能).{0,6}定性'] }, ctx(fakeTrace(), '#31 还没定性，等产品确认'))!.pass, true);
 nodeAssert.equal(assertTrajectory({ type: 'textMatchRegex', mustMatch: ['(未|还没).{0,6}定性'] }, ctx(fakeTrace(), '#31 已定性为数据问题'))!.pass, false);
 
-// 7. 文件名边界匹配：前缀相同的文件不能互相冒充
-nodeAssert.equal(matchFile('a/Components/ConfirmListPanel.tsx', 'ConfirmListPanel.tsx'), true);
-nodeAssert.equal(matchFile('a/Components/RoomConfirmListPanel.tsx', 'ConfirmListPanel.tsx'), false);
-nodeAssert.equal(matchFile('ConfirmListPanel.tsx', 'ConfirmListPanel.tsx'), true);
+// 完整路径、不误认同名文件及 Git 快照状态由 checks/artifacts.ts 覆盖。
 
 // 8. 并行调度：每个模型必须产出完整结果，合并顺序与串行一致
 function row(modelId: string, caseId: string): CaseResult {
@@ -148,4 +145,5 @@ await (await import('./checks/trace.ts')).runTraceTests();
 await (await import('./checks/scenarios.ts')).runScenarioTests();
 await (await import('./checks/runner.ts')).runRunnerTests();
 await (await import('./checks/protocol.ts')).runProtocolTests();
+await (await import('./checks/cli.ts')).runCliTests();
 console.log('✓ selftest 全部通过：基础断言 / 净产物 / 逐轮轨迹 / 离线场景 / 编排 / 发布协议');

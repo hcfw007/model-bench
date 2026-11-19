@@ -8,7 +8,7 @@
   "prompt": "先读 .tasks/bulk-send-v1/STATUS.md 和 record.json。按已确认口径修复 #18 自动标签：只对实际发送成功的对象打标、失败对象不打；打标失败不改变任务 FINISHED 状态；打标必须幂等可重试；并补单测覆盖成功/无绑定/重复收尾/失败对象四种情况。改完跑 go build 和 go test。",
   "allowedTurns": 15,
   "assertions": [
-    { "type": "diffFiles", "mustInclude": ["poll.go"], "mustExclude": ["auth-service"] },
+    { "type": "diffFiles", "mustInclude": ["go-projects/some-service/internal/biz/bulk_send_v1/poll.go"], "mustExclude": ["go-projects/auth-service"] },
     { "type": "fileContains", "path": "go-projects/some-service/internal/biz/bulk_send_v1/poll.go", "pattern": "MarkTag|SentExternalIDs|HasMarkTag" },
     { "type": "cmd", "run": "go build ./...", "expect": "exit0" },
     { "type": "cmd", "run": "go test ./... -count=1", "expect": "exit0" },

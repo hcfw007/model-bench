@@ -1,0 +1,11 @@
+{
+  "id": "l2-08",
+  "layer": "l2",
+  "weight": 1,
+  "title": "用户纠正环境后重新取证",
+  "worktree": true,
+  "prompt": "看 test 在 10:00–10:15 UTC 这条任务 JOB-2047 为什么失败。只查看附带的本地证据，使用 read 工具实际读取文件，不改文件、不查外部系统。每轮给一份 JSON 结论：env（test/stage）、window（固定写 10:00-10:15 UTC）、status（failed/pending）、cause（使用证据里的原因代码；证据不足时写 unknown）、evidenceIds（分别引用当轮读到的两份证据 ID）。可另附说明。",
+  "followUps": ["我指的是 stage，同一时间窗，重新看。给出 stage 的 JSON 结论，并在外围说明中用「此前结论仅适用于 test」标明旧结论的范围。"],
+  "allowedTurns": 2,
+  "assertions": [{ "type": "scenario" }]
+}

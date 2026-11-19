@@ -40,6 +40,8 @@ export interface BenchConfig {
     timeoutSec: number;
     maxTurns: number;
     keepWorktree: boolean;
+    switchModel?: string;
+    switchFallback?: string;
   };
   weights: Record<string, number>;
   layers: Record<string, boolean>;

@@ -2,9 +2,15 @@
 
 **中文** | [English](README.en.md)
 
-> ### 📊 [v1.0 排行](rankings/v1.0.md)
+> **[v1.1 排行](rankings/v1.1.md)** · [用例与计分协议](docs/v1.1-design.md)
 >
 > <!-- RANKING:START -->
+> 暂无 v1.1 正式成绩。
+> <!-- RANKING:END -->
+>
+> ### 📊 [v1.0 最终排行（已归档）](rankings/v1.0.md)
+>
+> <!-- ARCHIVED:v1.0:START -->
 > | # | 模型 | 总分 |
 > |---|---|---|
 > | 1 | `kiro/claude-sonnet-5-5` | **100.0** |
@@ -25,9 +31,9 @@
 > | 16 | `mimo/mimo-v2.6-pro` | **51.7** |
 >
 > 31 个用例 · 2026-11-19
-> <!-- RANKING:END -->
+> <!-- ARCHIVED:v1.0:END -->
 
-**注意：所有成绩都只跑了 1 次（31 个用例 × 1 次）。** 单次结果的波动可能很大，分数差异不足以作为稳定的能力结论，只适合个人选型时看趋势。
+**v1.0 归档成绩是 31 题 × 1 次。v1.1 是 33 题 × 3 次，两版不混排。** 试跑不入榜。
 
 一套在我真实 opencode 使用数据上反向设计出来的个人基准：1053 个会话、3651 轮输入、60036 条助手消息。
 
@@ -76,7 +82,7 @@
 | L1 单点 | 20 | 多服务定位、最小编辑、取证、缺陷定性不越界 |
 | L2 流水线 | 40 | SOP 端到端，核心指标是返工轮次 |
 | L3 Harness | 25 | subagent 并行派发/二层嵌套、压缩恢复、权限边界、错误自愈 |
-| 成本 | 5 | token 与时长，仅用于同分排序 |
+| 成本 | 不计分 | 附报 token、时长与超时；正式总分按四层权重之和 95 归一化，真同分并列 |
 
 分层输出，因为用途不同：
 
@@ -100,7 +106,7 @@
 2. **轨迹断言**：工具调用序列、read 失败次数、subagent 数量与并行度、轮次数、是否碰了禁止命令
 3. **文本断言**：必须命中的关键 ID、必须回避的越界措辞（正则黑名单 + 否定语境豁免）
 
-当前 31 个 case 全部硬断言，没有 LLM judge —— 需要主观打分的题一律不进这套基准，见 `judges/README.md`。
+当前 33 个 case 全部硬断言，没有 LLM judge —— 需要主观打分的题一律不进这套基准，见 `judges/README.md`。
 
 ## 目录
 
@@ -123,9 +129,9 @@ reports/                 结论性文档（跑分基线目录不进版本控制�
 git clone --recursive https://github.com/hcfw007/model-bench.git
 cd model-bench
 node runners/selftest.ts                       # 校验断言与计分管线
-node runners/run-bench.ts --dry-run            # 校验 31 个 case
+node runners/run-bench.ts --dry-run            # 校验 33 个 case，不调用模型
 node runners/run-bench.ts --layers l0 --models kiro/claude-opus-5-5,kiro/claude-sonnet-5-5
-node runners/run-bench.ts --models volc/glm-5.3,volc/kimi-k3.1-pro --concurrency 2   # 每模型独立克隆 mockrepo
+node runners/run-bench.ts --mode formal --dry-run --models openai/gpt-6.2-sol,openai/gpt-6.2-astra   # 离线核对正式题集
 ```
 
 只依赖 Node 内置模块（`node:sqlite` + type stripping），不需要 `npm install`。
@@ -134,7 +140,9 @@ node runners/run-bench.ts --models volc/glm-5.3,volc/kimi-k3.1-pro --concurrency
 
 输出 `reports/<timestamp>/leaderboard.md` 与 `failures.md`。
 
-每个用例的实测状态与已知限制见 [`reports/COVERAGE.md`](reports/COVERAGE.md)。
+正式运行须先在已部署 rootless Podman 的非 root Linux 宿主通过隔离预检；完整操作见[发布指南](docs/v1.1-release-ops.md)。普通 trial 不能入榜。
+
+旧版实测覆盖记录见 [`reports/COVERAGE.md`](reports/COVERAGE.md)，不可用作 v1.1 的实测记录。
 
 ## 已知需要校准的地方
 

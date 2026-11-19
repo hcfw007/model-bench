@@ -10,15 +10,19 @@
   "assertions": [
     {
       "type": "subagents",
-      "min": 2,
-      "parallel": true
+      "parallel": true,
+      "tasks": [
+        "\\bConfirmListPanel\\b|(?:web-console|前端)[\\s\\S]{0,80}(?:canConfirm|通过)",
+        "\\bnew_badge\\.go\\b|(?:auth-service|角标)[\\s\\S]{0,80}BULK_SEND_V1",
+        "\\bvalidateMaterials\\b|(?:api-bff|附件)[\\s\\S]{0,80}(?:超限|400|ATTACHMENTS_TOO_MANY)"
+      ]
     },
     {
       "type": "diffFiles",
       "mustInclude": [
-        "ConfirmListPanel.tsx",
-        "new_badge.go",
-        "bulk_send_v1.service.ts"
+        "ts-projects/web-console/src/Pages/BulkSendV1/Components/ConfirmListPanel.tsx",
+        "go-projects/auth-service/app/domain/dependency/new_badge.go",
+        "ts-projects/api-bff/src/bulk_send_v1/bulk_send_v1.service.ts"
       ]
     },
     {

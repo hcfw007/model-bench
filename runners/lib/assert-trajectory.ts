@@ -1,4 +1,7 @@
 import type { AssertCtx, AssertResult } from './assert-artifacts.ts';
+import { assertAutoTagConclusion } from './assert-auto-tag.ts';
+import { assertFanout } from './assert-fanout.ts';
+import { assertToolOrder } from './assert-tool-order.ts';
 
 /**
  * 中文纪律判定：按「行」而不是按字符。
@@ -15,7 +18,9 @@ function cjkRatio(text: string): number {
   return chineseLines / lines.length;
 }
 
-export function assertTrajectory(a: Record<string, unknown>, ctx: AssertCtx): AssertResult | null {
+export function assertTrajectory(
+  a: Record<string, unknown>, ctx: AssertCtx,
+): (AssertResult & { missingEvidence?: true }) | null {
   const type = String(a.type);
   const t = ctx.trace;
 
@@ -36,7 +41,11 @@ export function assertTrajectory(a: Record<string, unknown>, ctx: AssertCtx): As
     return { type, pass: hits.length === 0, detail: hits.join(' | ') || 'clean' };
   }
 
-  if (!t) return { type, pass: false, detail: 'no trace' };
+  if (!t) return { type, pass: false, detail: 'no trace', missingEvidence: true };
+
+  if (type === 'toolOrder') return assertToolOrder(a, ctx);
+
+  if (type === 'autoTagConclusion') return assertAutoTagConclusion(ctx.answer, t, ctx.worktree);
 
   if (type === 'turns') return { type, pass: t.turns <= Number(a.max), detail: `turns=${t.turns}` };
 
@@ -64,6 +73,7 @@ export function assertTrajectory(a: Record<string, unknown>, ctx: AssertCtx): As
   }
 
   if (type === 'subagents') {
+    if (Array.isArray(a.tasks) && a.parallel) return assertFanout(t, a.tasks as string[]);
     const okCount = t.subagentCount >= Number(a.min ?? 1);
     const okParallel = a.parallel ? t.subagentsParallel : true;
     return { type, pass: okCount && okParallel, detail: `subagents=${t.subagentCount} parallel=${t.subagentsParallel}` };

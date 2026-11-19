@@ -6,9 +6,7 @@ import { execFileSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripJsonc } from './config.ts';
-
-/** 跑分所需的最小集合；reports/.worktrees 等运行产物不复制 */
-const WORKER_ENTRIES = ['runners', 'cases', 'fixtures', 'judges', 'package.json'];
+import { WORKER_ENTRIES } from './protocol-freeze.ts';
 
 function git(repo: string, args: string[]): string {
   return execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
@@ -16,6 +14,12 @@ function git(repo: string, args: string[]): string {
 
 export function mockRepoHead(repo: string): string {
   return git(repo, ['rev-parse', 'HEAD']);
+}
+
+export function mockRepoMain(repo: string): string {
+  const main = git(repo, ['rev-parse', 'refs/heads/main']);
+  if (mockRepoHead(repo) !== main) throw new Error('mockrepo HEAD 不是 main 锁定提交');
+  return main;
 }
 
 /**
@@ -27,6 +31,12 @@ export function assertMockRepoClean(repo: string): void {
   if (dirty.length > 0) {
     throw new Error(`mockrepo 有未提交改动，并行克隆无法保证与当前测试床一致:\n${dirty}`);
   }
+}
+
+export function normalizeWorkerConfig(configPath: string): string {
+  const cfg = JSON.parse(stripJsonc(readFileSync(configPath, 'utf8'))) as { bench: Record<string, unknown> };
+  cfg.bench = { ...cfg.bench, mockRepo: './mockrepo', worktreeRoot: './.worktrees', reportsDir: './reports' };
+  return `${JSON.stringify(cfg, null, 2)}\n`;
 }
 
 /**
@@ -48,11 +58,7 @@ export function prepareReference(opts: {
     if (existsSync(src)) cpSync(src, join(dest, entry), { recursive: true });
   }
 
-  const cfg = JSON.parse(stripJsonc(readFileSync(configPath, 'utf8'))) as {
-    bench: Record<string, unknown>;
-  };
-  cfg.bench = { ...cfg.bench, mockRepo: './mockrepo', worktreeRoot: './.worktrees', reportsDir: './reports' };
-  writeFileSync(join(dest, 'bench.config.jsonc'), `${JSON.stringify(cfg, null, 2)}\n`);
+  writeFileSync(join(dest, 'bench.config.jsonc'), normalizeWorkerConfig(configPath));
 
   execFileSync(
     'git',
@@ -61,7 +67,7 @@ export function prepareReference(opts: {
   );
 
   const commit = mockRepoHead(join(dest, 'mockrepo'));
-  const expected = mockRepoHead(mockRepo);
+  const expected = mockRepoMain(mockRepo);
   if (commit !== expected) throw new Error(`mockrepo 克隆提交不一致: ${commit} != ${expected}`);
   return { dir: dest, commit };
 }

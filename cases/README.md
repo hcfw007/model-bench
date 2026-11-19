@@ -29,7 +29,7 @@
 | `l1-09` | 代码考古：找出引入问题的那个 commit 和当时的动机 | 我在真实会话最后一句问的是：「280 版本 nest 无法启动，是为了修reviewer-bot的意见引入的新问题，请你找一下当… |
 | `l1-10` | 惯例一致性：加幂等要参照仓里既有做法 | 我多次说过「按照之前惯例吧」（幂等键那次就是）。新写一套语义不同的幂等，比不加更糟。 |
 
-### L2 流水线（6）
+### L2 流水线（8）
 
 | id | 用例 | 考什么 |
 |---|---|---|
@@ -39,6 +39,8 @@
 | `l2-04` | 审查不收敛：同一条意见重复三次后必须交人工 | 我真实定过规则：「正常到 5 次不自动重开，而是提醒人工」。但我的历史里有整段对话在反复确认「是不是一直没解决」。这个 case… |
 | `l2-05` | 修 A 不引入 B：收敛条件 + 打标同时成立 | 我真实踩过：为了修reviewer-bot的一条意见，引入了 nest 起不来的新问题。这是我复盘时最痛的一类。隐藏测试会同时要… |
 | `l2-06` | 跨会话继承：先读档案，沿用已拍板口径 | 我的长流程都靠 .tasks/*/STATUS.md 跨会话续做。读不懂档案里的「已拍板 / 未定性 / 不可动」，就等于每个会… |
+| `l2-07` | 多仓分批授权交付 | 逐轮核对三个模拟仓的引用与交付请求，包括被拒和重复请求；全部操作均在本地。 |
+| `l2-08` | 纠正环境后的重新取证 | 同一任务号和时间窗，从 test 切到 stage。逐轮核对结论、证据 ID 及实际读取。 |
 
 ### L3 Harness（8）
 
@@ -81,11 +83,12 @@
 | type | 字段 | 含义 |
 |---|---|---|
 | `cmd` | `run`, `expect: "exit0" \| "exitNonZero"`, `timeoutSec` | 执行命令判退出码 |
-| `diffFiles` | `mustInclude[]`, `mustExclude[]` | 改动文件集合 |
-| `diffLines` | `max`, `min` | 改动总行数（最小编辑能力） |
+| `diffFiles` | `mustInclude[]`, `mustExclude[]` | 净改动的仓库相对完整路径；排除项也可填仓库相对目录，重命名计入新旧路径 |
+| `diffLines` | `max`, `min` | 净改动的文本新增行数与删除行数之和，不计隐藏测试 |
+| `diffAddedText` | `path`（仓库相对文件或目录）, `pattern`（正则）, `flags`（可选） | 指定路径的净补丁中，至少一条新增文本行命中；文件名、旧行和隐藏测试不计 |
 | `fileContains` | `path`, `pattern`（正则） | 文件内容必须命中 |
 | `fileNotContains` | `path`, `pattern` | 文件内容必须不含 |
-| `gitClean` | — | 工作区无未提交改动（可选） |
+| `scenario` | 由用例 ID 指定 | 核对每轮交付或取证检查点 |
 
 轨迹类（从 `opencode.db` 的 `session_message` 抽）：
 
@@ -94,7 +97,8 @@
 | `turns` | `max` | 用户轮次数 |
 | `toolCalls` | `name`, `max`/`min` | 某工具调用次数 |
 | `toolErrors` | `name`, `max` | 某工具失败次数（read 猜路径是重点） |
-| `toolSequence` | `mustCallAny[]`, `before` | 编辑前必须先做检索 |
+| `toolSequence` | `mustCallAny[]` | 旧题检查调用过某工具，不证明顺序 |
+| `toolOrder` | `before` 等，见 `l1-04`、`l1-10` | 同一执行者先成功定位相关目标，再执行指定类型的操作 |
 | `shellCommandMatches` | `pattern`（正则）, `orTools[]` | shell 命令命中正则，或调用过 `orTools` 里的工具 |
 | `subagents` | `min`, `parallel: true` | subagent 数量与并行度 |
 | `nestedAgents` | `minDepth` | 子会话再开子会话的层数 |
@@ -109,6 +113,7 @@
 | `textMatch` | `must[]`, `mustAny[]`, `mustNot[]` | 必须全部命中 / 至少命中一个 / 不得命中 |
 | `textRatioCJK` | `min` | 中文字符占比（语言纪律） |
 | `exactText` | `value` | 完全相等（连通性探针） |
+| `autoTagConclusion` | 见 `l1-05` 题面 | 判断任务完成后的打标行为及证据，区别于是否能保存标签配置 |
 
 ## 权重
 

@@ -1,6 +1,8 @@
 import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+
+import { netAddedLines, type NetDiff, type NetTrees } from './net-diff.ts';
 import type { Trace } from './trace.ts';
 
 export interface AssertCtx {
@@ -9,12 +11,15 @@ export interface AssertCtx {
   answer: string;
   forbidden: string[];
   startedAt: number;
+  netDiff?: NetDiff;
+  netTrees?: NetTrees;
 }
 
 export interface AssertResult {
   type: string;
   pass: boolean;
   detail: string;
+  missingEvidence?: boolean;
 }
 
 function sh(cmd: string, cwd: string, timeout = 180000): { code: number; out: string } {
@@ -27,36 +32,9 @@ function sh(cmd: string, cwd: string, timeout = 180000): { code: number; out: st
   }
 }
 
-/** 按路径边界匹配文件名：避免 RoomConfirmListPanel.tsx 被当成 ConfirmListPanel.tsx */
-export function matchFile(p: string, f: string): boolean {
-  return p === f || p.endsWith('/' + f);
-}
-
-export function changedFiles(wt: string): string[] {
-  const por = sh('git status --porcelain', wt).out;
-  return por
-    .split('\n')
-    .filter((l) => l.trim().length > 0)
-    .map((l) => l.slice(3).trim().replace(/^"|"$/g, ''));
-}
-
-export function changedLines(wt: string): number {
-  let total = 0;
-  const numstat = sh('git diff --numstat', wt).out;
-  for (const line of numstat.split('\n')) {
-    const parts = line.split('\t');
-    if (parts.length < 2) continue;
-    total += (Number(parts[0]) || 0) + (Number(parts[1]) || 0);
-  }
-  const untracked = sh('git ls-files --others --exclude-standard', wt).out;
-  for (const f of untracked.split('\n').filter(Boolean)) {
-    try {
-      total += readFileSync(resolve(wt, f), 'utf8').split('\n').length;
-    } catch {
-      /* ignore */
-    }
-  }
-  return total;
+function matchesExcludedPath(path: string, excluded: string): boolean {
+  const prefix = excluded.endsWith('/') ? excluded : `${excluded}/`;
+  return path === excluded || path.startsWith(prefix);
 }
 
 export function assertArtifact(a: Record<string, unknown>, ctx: AssertCtx): AssertResult | null {
@@ -72,24 +50,37 @@ export function assertArtifact(a: Record<string, unknown>, ctx: AssertCtx): Asse
     return { type, pass: ok, detail: `exit=${r.code} ${r.out.slice(0, 300)}` };
   }
 
-  if (type === 'diffFiles') {
-    const files = changedFiles(ctx.worktree);
+  if (type === 'diffFiles' || type === 'diffLines') {
+    const diff = ctx.netDiff;
+    if (!diff) return { type, pass: false, missingEvidence: true, detail: 'missing net diff evidence' };
+
+    const { files, lines } = diff;
+    if (type === 'diffLines') {
+      const max = Number(a.max ?? Number.POSITIVE_INFINITY);
+      const min = Number(a.min ?? 0);
+      return { type, pass: lines >= min && lines <= max, detail: `lines=${lines} range=[${min},${max}]` };
+    }
+
     const mustInclude = (a.mustInclude as string[] | undefined) ?? [];
     const mustExclude = (a.mustExclude as string[] | undefined) ?? [];
-    const missing = mustInclude.filter((f) => !files.some((x) => matchFile(x, f)));
-    const violated = mustExclude.filter((f) => files.some((x) => matchFile(x, f)));
+    const missing = mustInclude.filter((path) => !files.includes(path));
+    const violated = mustExclude.filter((excluded) => files.some((path) => matchesExcludedPath(path, excluded)));
     return {
       type,
       pass: missing.length === 0 && violated.length === 0,
-      detail: `changed=${files.join(',')} missing=${missing.join(',')} violated=${violated.join(',')}`,
+      detail: `changed=${JSON.stringify(files)} missing=${JSON.stringify(missing)} violated=${JSON.stringify(violated)}`,
     };
   }
 
-  if (type === 'diffLines') {
-    const n = changedLines(ctx.worktree);
-    const max = Number(a.max ?? Number.POSITIVE_INFINITY);
-    const min = Number(a.min ?? 0);
-    return { type, pass: n >= min && n <= max, detail: `lines=${n} range=[${min},${max}]` };
+  if (type === 'diffAddedText') {
+    if (!ctx.netTrees) return { type, pass: false, missingEvidence: true, detail: 'missing net trees evidence' };
+    const path = String(a.path);
+    const pattern = new RegExp(String(a.pattern), String(a.flags ?? ''));
+    const pass = netAddedLines(ctx.worktree, ctx.netTrees, path).some((line: string): boolean => {
+      pattern.lastIndex = 0;
+      return pattern.test(line);
+    });
+    return { type, pass, detail: `added line match=${pass} path=${path}` };
   }
 
   if (type === 'fileContains' || type === 'fileNotContains') {

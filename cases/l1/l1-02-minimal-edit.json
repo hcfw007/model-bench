@@ -8,7 +8,16 @@
   "prompt": "修复：待确认列表在任务取消或删除后仍然显示「通过」按钮。只改私聊列表，不要动群聊列表，不要顺手重构。列表数据来自 BFF，先确认后端是否已经算好「能否确认」，能复用就不要在前端重复判断。",
   "allowedTurns": 10,
   "assertions": [
-    { "type": "diffFiles", "mustInclude": ["ConfirmListPanel.tsx"], "mustExclude": ["RoomConfirmListPanel.tsx", "poll.go", "confirm.go", "bulk_send_v1.service.ts"] },
+    {
+      "type": "diffFiles",
+      "mustInclude": ["ts-projects/web-console/src/Pages/BulkSendV1/Components/ConfirmListPanel.tsx"],
+      "mustExclude": [
+        "ts-projects/web-console/src/Pages/BulkSendV1/Components/RoomConfirmListPanel.tsx",
+        "go-projects/some-service/internal/biz/bulk_send_v1/poll.go",
+        "go-projects/some-service/internal/biz/bulk_send_v1/confirm.go",
+        "ts-projects/api-bff/src/bulk_send_v1/bulk_send_v1.service.ts"
+      ]
+    },
     { "type": "diffLines", "max": 30 },
     { "type": "cmd", "run": "grep -Eq 'canConfirm|isConfirmable|canBeConfirmed' ts-projects/web-console/src/Pages/BulkSendV1/Components/ConfirmListPanel.tsx", "expect": "exit0" },
     { "type": "cmd", "run": "go build ./...", "expect": "exit0" }

@@ -11,7 +11,7 @@
     { "type": "fileContains", "path": "ts-projects/web-console/src/Pages/BulkSendV1/Components/RoomConfirmListPanel.tsx", "pattern": "确认发送" },
     { "type": "fileNotContains", "path": "ts-projects/web-console/src/Pages/BulkSendV1/Components/ConfirmListPanel.tsx", "pattern": "确认发送" },
     { "type": "toolErrors", "name": "edit", "max": 1 },
-    { "type": "diffFiles", "mustExclude": ["ConfirmListPanel.tsx"] }
+    { "type": "diffFiles", "mustExclude": ["ts-projects/web-console/src/Pages/BulkSendV1/Components/ConfirmListPanel.tsx"] }
   ],
   "gold": "先区分两个文件，改 RoomConfirmListPanel.tsx 的按钮文案；若 edit 报「多处匹配」，加更多上下文而不是重试同一段。"
 }

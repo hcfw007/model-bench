@@ -6,10 +6,10 @@ opencode 个人基准：用 `opencode run` 在 mockrepo 的 worktree 里跑 case
 
 - 零依赖，不要 `npm install`。直接 `node runners/*.ts`（Node 24 原生 type stripping + `node:sqlite`），import 必须带 `.ts` 后缀。
 - 无 tsc / lint / 测试框架。改完 runner 的验证顺序：
-  1. `node runners/selftest.ts`：纯逻辑，不调模型
+  1. `node runners/selftest.ts`：离线单测、临时工作树/SQLite、假 CLI 集成，不调模型
   2. `node runners/run-bench.ts --dry-run`：校验所有 case 的断言类型
 - `node runners/run-bench.ts` 会真实调用模型、消耗 token、写用户自己的 opencode.db，未经用户要求不要跑。缩小范围用 `--layers l0`、`--cases l1-05`（子串匹配）、`--models <id,...>`、`--repeat`、`--out reports/<dir>`。
-- `--models` 取 `bench.config.jsonc` 里的官方 id（如 `kiro/claude-opus-5-5`）。`pro-opus` 这类旧别名会被当作未知模型跳过，旧 results.json 用 `migrate-model-ids.ts` 迁移。
+- `--models` 取 `bench.config.jsonc` 登记的官方 id，未知模型应报错。`--mode trial` 是默认；`formal` 禁止筛题，固定 33 题 × 3 次、并发 2、`high`。两种模式不可混用。
 - 并发：`run.concurrency` 默认 2，可用 `--concurrency` 覆盖；`1` 走原串行路径。`>1` 时每个模型一份独立测试床（复制 runners/cases/fixtures，克隆 mockrepo 到系统临时目录），模型内 case 仍串行，跑完删除。并行前要求 mockrepo 干净，否则拒绝运行。
 - 并行只改调度：每个 case 的超时、断言、评分完全不变，结果按「模型声明顺序 → 用例顺序」合并。缺用例的模型整体排除出评分并写 `incomplete.md`，进程退出码 1。同一次 run 内所有模型共享同一并发度；跨 run 比较需并发度一致。
 - 并行测试床在系统临时目录 `model-bench-run-*`，正常退出删除；SIGKILL/断电可能残留，确认无同步进程后手动删除。`--concurrency 1` 完全走原串行路径。
@@ -17,8 +17,8 @@ opencode 个人基准：用 `opencode run` 在 mockrepo 的 worktree 里跑 case
 
 ## 结果后处理（都读 `reports/<dir>/results.json`）
 
-- `merge-results.ts <base> <overlay>`：只重跑个别 case 后并回完整结果，避免全量重跑。
-- `sync-rankings.ts reports/<dir> [--version v1.0]`：重写 `README.md`、`README.en.md` 的 `<!-- RANKING:START/END -->` 块和 `rankings/<version>.md`。排行不要手改。
+- v1.1 用 `--mode formal --repair reports/<base>` 补采集或服务故障，再 `merge-results.ts <base> <repair>`；不得替换普通失败、超时、违规或来自另一协议的槽位。
+- `sync-rankings.ts reports/<dir> --version v1.1` 只发布符合协议和验收要求的正式成绩。v1.0 的 `ARCHIVED` 锚点及原始档案保持冻结。
 - `render-report.ts`、`analyze.ts <dir> [caseId]`（失败根因）、`latency.ts <caseId> <modelId>`。
 - `reports/*/` 被 gitignore，只有 `reports/*.md` 结论文档入库。
 

@@ -10,17 +10,35 @@ import { join } from 'node:path';
 import type { BenchConfig, ModelSpec } from './config.ts';
 import type { CaseDef } from './runner.ts';
 import type { CaseResult } from './score.ts';
-import { checkPartition, incompleteReasons, orderResults, type RunMeta } from './parallel.ts';
+import type { RunMeta } from './parallel.ts';
+import { digestOf, expectedSlots, slotKey, type BenchMode, type ProtocolLock, type RepairPlan } from './protocol.ts';
+import { freezeProtocol, resolveIdentities } from './protocol-freeze.ts';
+import { validateRows } from './protocol-validate.ts';
 import { assertMockRepoClean, prepareReference, prepareWorkerRoot, removeWorkerRoot } from './worker.ts';
+import { deliveryProofBlocker, preflightMatches, runIsolationPreflight } from './protocol-isolation.ts';
+import type { IsolationProof } from './scenario-isolation.ts';
 
 export interface ParallelRunResult {
   results: CaseResult[];
-  skipped: Array<{ modelId: string; reason: string }>;
+  protocol: ProtocolLock;
   meta: RunMeta;
 }
 
 function safeName(id: string): string {
   return id.replace(/[^a-zA-Z0-9._-]/g, '-');
+}
+
+function fillMissing(protocol: ProtocolLock, modelId: string, rows: CaseResult[], reason: string): CaseResult[] {
+  const seen = new Map(rows.map((row) => [slotKey(modelId, { caseId: row.caseId, repeatIndex: row.repeatIndex! }), row]));
+  const cases = new Map(protocol.manifest.cases.map((row) => [row.id, row]));
+  return expectedSlots(protocol).filter((slot) => slot.modelId === modelId).map((slot) => {
+    const caseDef = cases.get(slot.caseId)!;
+    return seen.get(slotKey(modelId, slot)) ?? {
+      ...slot, layer: caseDef.layer, weight: caseDef.weight,
+      outcome: 'error', error: reason, pass: false, violation: false,
+      turns: 0, tokensInput: 0, tokensOutput: 0, durationSec: 0, toolErrors: {}, assertions: [],
+    };
+  });
 }
 
 /** 固定的槽位数，跑完即取下一个模型；同时最多 limit 个模型在执行 */
@@ -41,6 +59,40 @@ interface LineSource {
   on(event: 'end', listener: () => void): unknown;
 }
 
+interface WorkerExit {
+  code: number | null;
+  signal: NodeJS.Signals | null;
+}
+
+export function recoverWorkerRows(lock: ProtocolLock, raw: unknown): { rows: CaseResult[]; rejected: number } {
+  if (!Array.isArray(raw)) return { rows: [], rejected: 1 };
+  const slots = new Map<string, CaseResult>();
+  const conflicts = new Set<string>();
+  let rejected = 0;
+  for (const candidate of raw as CaseResult[]) {
+    try {
+      validateRows(lock, [candidate], true);
+    } catch {
+      rejected += 1;
+      continue;
+    }
+    const key = slotKey(candidate.modelId, { caseId: candidate.caseId, repeatIndex: candidate.repeatIndex! });
+    const previous = slots.get(key);
+    if (!previous && !conflicts.has(key)) {
+      slots.set(key, candidate);
+      continue;
+    }
+    rejected += 1;
+    if (candidate.outcome === 'violation') slots.set(key, candidate);
+    else if (previous && (previous.outcome === 'violation' || digestOf(previous) === digestOf(candidate))) continue;
+    else if (previous) {
+      conflicts.add(key);
+      slots.delete(key);
+    }
+  }
+  return { rows: [...slots.values()], rejected };
+}
+
 function pipeLines(stream: LineSource, prefix: string, write: (line: string) => void): void {
   let buffer = '';
   stream.on('data', (chunk: unknown) => {
@@ -57,23 +109,16 @@ function pipeLines(stream: LineSource, prefix: string, write: (line: string) => 
 
 function runWorker(opts: {
   dir: string;
-  spec: ModelSpec;
-  repeat: number;
-  layers: string[];
-  only: string[];
+  modelId: string;
+  protocol: ProtocolLock;
+  isolationConfigPath?: string;
   active: Set<ChildProcess>;
-}): Promise<number | null> {
-  const { dir, spec, repeat, layers, only, active } = opts;
+}): Promise<WorkerExit> {
+  const { dir, modelId, protocol, active, isolationConfigPath } = opts;
   const out = join(dir, 'out');
-  const args = [
-    join(dir, 'runners', 'run-bench.ts'),
-    '--models', spec.id,
-    '--out', out,
-    '--repeat', String(repeat),
-    '--concurrency', '1',
-    '--layers', layers.join(','),
-    ...(only.length > 0 ? ['--cases', only.join(',')] : []),
-  ];
+  writeFileSync(join(dir, 'protocol.lock.json'), JSON.stringify(protocol, null, 2), { flag: 'wx' });
+  const args = [join(dir, 'runners', 'run-bench.ts'), '--models', modelId, '--out', out,
+    ...(isolationConfigPath ? ['--isolation-config', isolationConfigPath] : [])];
   // detached 让子进程成为独立进程组，中断时能连同 opencode 孙进程一起杀掉
   const child = spawn(process.execPath, args, {
     cwd: dir,
@@ -81,18 +126,17 @@ function runWorker(opts: {
     env: { ...process.env, PWD: dir, OPENCODE_BENCH_WORKER: '1' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
-  const prefix = `[${spec.id}] `;
+  const prefix = `[${modelId}] `;
   active.add(child);
   pipeLines(child.stdout, prefix, (line) => process.stdout.write(line));
   pipeLines(child.stderr, prefix, (line) => process.stderr.write(line));
   return new Promise((resolvePromise) => {
     child.once('error', (error) => {
       process.stderr.write(`${prefix}spawn failed: ${error.message}\n`);
-      resolvePromise(null);
     });
-    child.once('close', (code) => {
+    child.once('close', (code, signal) => {
       active.delete(child);
-      resolvePromise(code);
+      resolvePromise({ code, signal });
     });
   });
 }
@@ -108,12 +152,24 @@ export async function runParallelModels(opts: {
   layers: string[];
   only: string[];
   outDir: string;
+  mode: BenchMode;
+  repair?: RepairPlan;
+  expectedDigest?: string;
+  expectedPreflight?: readonly IsolationProof[];
+  isolationConfigPath?: string;
 }): Promise<ParallelRunResult> {
-  const { cfg, configPath, repoRoot, cases, specs, repeat, concurrency, layers, only, outDir } = opts;
+  const { cfg, configPath, repoRoot, cases, specs, repeat, concurrency, layers, only, outDir, mode, repair, expectedDigest, expectedPreflight, isolationConfigPath } = opts;
+  if (mode === 'formal' && !isolationConfigPath) throw new Error('正式运行缺少隔离预检参数');
+  const isolated = isolationConfigPath ? runIsolationPreflight(isolationConfigPath, specs.map(({ id }) => id)) : undefined;
+  const preflight = isolated?.preflight;
+  if (repair && (!preflight || !expectedPreflight || preflight.some((proof) =>
+    expectedPreflight.some((prior) => prior.containerId === proof.containerId) || !expectedPreflight.some((prior) =>
+      prior.modelId === proof.modelId && preflightMatches(prior, proof))))) {
+    throw new Error('补槽模型或交付权威身份与主运行不一致');
+  }
   assertMockRepoClean(cfg.bench.mockRepo);
   mkdirSync(outDir, { recursive: true });
 
-  const caseIds = cases.map((c) => c.id);
   const startedAt = new Date();
   const base = mkdtempSync(join(tmpdir(), 'model-bench-run-'));
   const workersDir = join(base, 'workers');
@@ -122,8 +178,10 @@ export async function runParallelModels(opts: {
   const parts = new Map<string, CaseResult[]>();
   const incomplete = new Map<string, string>();
   const durations = new Map<string, number>();
+  const exits = new Map<string, WorkerExit>();
   const activeChildren = new Set<ChildProcess>();
   let reference: { dir: string; commit: string };
+  let protocol: ProtocolLock;
 
   const stop = async (): Promise<never> => {
     const waits = [...activeChildren].map((child) => {
@@ -152,6 +210,16 @@ export async function runParallelModels(opts: {
       configPath,
       mockRepo: cfg.bench.mockRepo,
     });
+    protocol = freezeProtocol({
+      root: reference.dir, mockRepoCommit: reference.commit, mode, concurrency, repeat, layers, only,
+      models: resolveIdentities(specs), repair, preflight,
+      isolation: isolated?.deployment,
+    });
+    if (JSON.stringify(protocol.manifest.cases.map(({ id }) => id)) !== JSON.stringify(cases.map(({ id }) => id))) {
+      throw new Error('参考快照的用例集发生变化');
+    }
+    if (expectedDigest !== undefined && protocol.digest !== expectedDigest) throw new Error('当前环境与主运行的协议锁不一致');
+    writeFileSync(join(outDir, 'protocol.lock.json'), `${JSON.stringify(protocol, null, 2)}\n`, { flag: 'wx' });
     await pool(specs, concurrency, async (spec, index) => {
       const started = Date.now();
       try {
@@ -161,32 +229,37 @@ export async function runParallelModels(opts: {
           dest: join(workersDir, `${String(index).padStart(2, '0')}-${safeName(spec.id)}`),
         });
         process.stdout.write(`[${spec.id}] 测试床 ${layout.dir} @ ${layout.commit.slice(0, 7)}\n`);
-        const code = await runWorker({ dir: layout.dir, spec, repeat, layers, only, active: activeChildren });
+        const exit = await runWorker({ dir: layout.dir, modelId: spec.id, protocol, active: activeChildren, isolationConfigPath });
+        exits.set(spec.id, exit);
         const partial = join(layout.dir, 'out', 'results.partial.json');
-        if (!existsSync(partial)) {
-          incomplete.set(spec.id, `子进程退出码 ${code}，无结果文件`);
-          return;
-        }
-        const rows = JSON.parse(readFileSync(partial, 'utf8')) as CaseResult[];
-        const check = checkPartition(spec.id, rows, caseIds, repeat);
-        if (!check.ok) {
-          incomplete.set(spec.id, `${check.error}（退出码 ${code}）`);
-          return;
-        }
-        parts.set(spec.id, rows);
+        const raw = existsSync(partial) ? readFileSync(partial, 'utf8') : '[]';
+        writeFileSync(join(outDir, `worker-${index}.json`), raw, { flag: 'wx' });
+        const slots = expectedSlots(protocol).filter(({ modelId }) => modelId === spec.id);
+        const workerLock = { ...protocol, models: protocol.models.filter(({ id }) => id === spec.id),
+          ...(protocol.repair ? { repair: { ...protocol.repair, slots } } : {}) };
+        const { rows, rejected } = recoverWorkerRows(workerLock, JSON.parse(raw));
+        const reason = `worker exit=${exit.signal ?? exit.code}，缺槽 ${slots.length - rows.length}，无效/冲突记录 ${rejected}`;
+        if (exit.code !== 0 || rejected > 0 || rows.length !== slots.length) incomplete.set(spec.id, reason);
+        const expected = protocol.preflight?.find(({ modelId }) => modelId === spec.id);
+        const verifiedRows = expected ? rows.map((row): CaseResult => {
+          if (row.violation || row.outcome === 'missing_evidence' || row.outcome === 'error') return row;
+          const failure = deliveryProofBlocker(row, expected);
+          if (!failure) return row;
+          return { ...row, outcome: 'missing_evidence', pass: false, error: [row.error, failure].filter(Boolean).join('\n') };
+        }) : rows;
+        parts.set(spec.id, fillMissing(protocol, spec.id, verifiedRows, reason));
         // 每完成一个模型就把已合并结果落盘，进程中断也不丢已完成模型
         try {
           writeFileSync(
             join(outDir, 'results.partial.json'),
-            JSON.stringify(orderResults(specs.map((s) => s.id), caseIds, repeat, parts), null, 2),
+            JSON.stringify(specs.flatMap(({ id }) => parts.get(id) ?? []), null, 2),
           );
         } catch (error) {
           process.stderr.write(`[${spec.id}] 快照写入失败（不影响计分）：${(error as Error).message}\n`);
         }
-        if (code !== 0) process.stderr.write(`[${spec.id}] 警告：退出码 ${code}，但结果完整，按已有结果计分\n`);
       } catch (error) {
-        parts.delete(spec.id);
-        incomplete.set(spec.id, (error as Error).message);
+        incomplete.set(spec.id, error instanceof Error ? error.message : String(error));
+        parts.set(spec.id, fillMissing(protocol, spec.id, [], incomplete.get(spec.id)!));
         process.stderr.write(`[${spec.id}] 失败：${(error as Error).message}\n`);
       } finally {
         durations.set(spec.id, Math.round((Date.now() - started) / 1000));
@@ -203,14 +276,13 @@ export async function runParallelModels(opts: {
     }
   }
 
-  const results = orderResults(specs.map((s) => s.id), caseIds, repeat, parts);
-  const skipped = incompleteReasons(specs.map((s) => s.id), parts, incomplete);
+  const results = specs.flatMap(({ id }) => parts.get(id) ?? []);
 
   return {
     results,
-    skipped,
+    protocol,
     meta: {
-      mode: 'parallel',
+      mode: concurrency === 1 ? 'serial' : 'parallel',
       concurrency,
       mockRepoCommit: reference.commit,
       startedAt: startedAt.toISOString(),
@@ -220,6 +292,7 @@ export async function runParallelModels(opts: {
         modelId: s.id,
         status: incomplete.has(s.id) ? 'incomplete' as const : 'complete' as const,
         ...(incomplete.has(s.id) ? { reason: incomplete.get(s.id) } : {}),
+        ...(exits.has(s.id) ? { exitCode: exits.get(s.id)!.code, signal: exits.get(s.id)!.signal } : {}),
         durationSec: durations.get(s.id),
       })),
     },

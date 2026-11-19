@@ -5,42 +5,96 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { resolveModelRef, type BenchConfig, type ModelSpec } from './config.ts';
-import { runCase, type CaseDef } from './runner.ts';
-import type { CaseResult } from './score.ts';
+import type { ProtocolLock } from './protocol.ts';
+import { requireSafeExecution, runCase, type CaseDef, type CaseResult } from './runner.ts';
+import type { DeliveryAdapter } from './turn-run-adapter.ts';
 
-export function runSerialModels(opts: {
+export interface SerialSlot {
+  readonly modelId?: string;
+  readonly caseId: string;
+  readonly repeatIndex: number;
+}
+
+interface SerialRunOptions {
   cfg: BenchConfig;
   casesRoot: string;
   cases: CaseDef[];
   specs: ModelSpec[];
   repeat: number;
   outDir: string;
-}): CaseResult[] {
+  slots?: readonly SerialSlot[];
+  workerLock?: ProtocolLock;
+  deliveryAdapter?: DeliveryAdapter;
+}
+
+interface Selection {
+  readonly keys: Set<string>;
+  readonly cases: Set<string>;
+}
+
+function selectSlots(opts: SerialRunOptions): Selection | undefined {
+  const { cases, specs, repeat, slots } = opts;
+  if (!Number.isSafeInteger(repeat) || repeat < 1) throw new Error('repeat must be a positive integer');
+  const modelIds = new Set(specs.map(({ id }) => id));
+  const caseIds = new Set(cases.map(({ id }) => id));
+  if (modelIds.size !== specs.length || caseIds.size !== cases.length) {
+    throw new Error('serial model IDs and case IDs must be unique');
+  }
+  if (slots === undefined) return undefined;
+  const keys = new Set<string>();
+  const selectedCases = new Set<string>();
+  for (const { modelId, caseId, repeatIndex } of slots) {
+    const model = modelId === undefined && specs.length === 1 ? specs[0].id : modelId;
+    if (!model || !modelIds.has(model)) throw new Error(`invalid slot modelId: ${modelId ?? '(omitted)'}`);
+    if (!caseIds.has(caseId)) throw new Error(`invalid slot caseId: ${caseId}`);
+    if (!Number.isSafeInteger(repeatIndex) || repeatIndex < 0 || repeatIndex >= repeat) {
+      throw new Error(`invalid slot repeatIndex: ${repeatIndex}`);
+    }
+    const key = JSON.stringify([model, caseId, repeatIndex]);
+    if (keys.has(key)) throw new Error(`duplicate slot: ${key}`);
+    keys.add(key);
+    selectedCases.add(JSON.stringify([model, caseId]));
+  }
+  return { keys, cases: selectedCases };
+}
+
+export function runSerialModels(opts: SerialRunOptions): CaseResult[] {
   const { cfg, casesRoot, cases, specs, repeat, outDir } = opts;
+  const selected = selectSlots(opts);
+  const total = selected?.keys.size ?? specs.length * cases.length * repeat;
+  if (total === 0) return [];
+  const deployment = opts.workerLock?.manifest.isolation;
+  const isolationRequired = opts.workerLock?.manifest.mode === 'formal' || deployment !== undefined;
+  if (opts.deliveryAdapter && (!deployment || specs.length !== 1
+    || opts.deliveryAdapter.modelId !== specs[0].id || opts.deliveryAdapter.backend !== deployment.backend
+    || opts.deliveryAdapter.isolationId !== deployment.isolationId)) {
+    throw new Error('Delivery adapter does not match the verified worker protocol lock');
+  }
+  for (const spec of specs) {
+    for (const caseDef of cases) {
+      if (selected && !selected.cases.has(JSON.stringify([spec.id, caseDef.id]))) continue;
+      requireSafeExecution(caseDef.id, isolationRequired, opts.deliveryAdapter);
+    }
+  }
   mkdirSync(outDir, { recursive: true });
 
   const results: CaseResult[] = [];
-  const total = specs.length * cases.length * repeat;
   let done = 0;
 
   for (const spec of specs) {
-    const modelRef = resolveModelRef(spec.model) + (spec.variant ? `#${spec.variant}` : '');
+    let modelRef: string | undefined;
     for (let r = 0; r < repeat; r++) {
       for (const c of cases) {
+        if (selected && !selected.keys.has(JSON.stringify([spec.id, c.id, r]))) continue;
+        modelRef ??= resolveModelRef(spec.model) + (spec.variant ? `#${spec.variant}` : '');
         done += 1;
         process.stdout.write(`[${done}/${total}] ${spec.id} ${c.id} ... `);
-        try {
-          const res = runCase({ cfg, casesRoot, caseDef: c, modelId: spec.id, modelRef, idx: r });
-          results.push(res);
-          console.log(`${res.pass ? 'PASS' : 'FAIL'} (${res.turns}轮 ${res.durationSec}s)`);
-        } catch (e) {
-          console.log(`ERROR ${(e as Error).message}`);
-          results.push({
-            caseId: c.id, layer: c.layer, modelId: spec.id, pass: false, violation: false,
-            weight: c.weight ?? 1, turns: 0, tokensInput: 0, tokensOutput: 0, durationSec: 0,
-            toolErrors: {}, assertions: [], error: (e as Error).message,
-          });
-        }
+        const res = runCase({
+          cfg, casesRoot, caseDef: c, modelId: spec.id, modelRef, idx: r, formal: isolationRequired,
+          deliveryAdapter: c.id === 'l2-07' ? opts.deliveryAdapter : undefined,
+        });
+        results.push(res);
+        process.stdout.write(`${res.outcome.toUpperCase()} (${res.turns}轮 ${res.durationSec}s)\n`);
         writeFileSync(resolve(outDir, 'results.partial.json'), JSON.stringify(results, null, 2));
       }
     }

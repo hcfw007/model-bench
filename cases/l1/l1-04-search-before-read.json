@@ -5,11 +5,17 @@
   "title": "先检索后读取：read 不许失败",
   "why": "我历史上有 530 次 read:error，是全仓最高的工具失败。绝大多数是模型猜路径。这个 case 只考一件事：先 grep 再 read。",
   "worktree": true,
-  "prompt": "找到 some-service 里 SyncJob 的定义位置，告诉我文件和函数名。不要靠猜路径。",
+  "prompt": "找到 some-service 里业务层 SyncJob 的定义位置：先检索定位，再打开命中的源文件确认，告诉我文件和函数名。不要靠猜路径。",
   "allowedTurns": 5,
   "assertions": [
     { "type": "toolErrors", "name": "read", "max": 0 },
-    { "type": "toolSequence", "mustCallAny": ["grep", "glob"] },
+    {
+      "type": "toolOrder",
+      "before": "read",
+      "searchSubject": "SyncJob",
+      "searchTargets": ["go-projects/some-service/internal/biz/bulk_send_v1/poll.go"],
+      "readTarget": "go-projects/some-service/internal/biz/bulk_send_v1/poll.go"
+    },
     { "type": "textMatch", "must": ["poll.go", "SyncJob"] }
   ],
   "gold": "grep SyncJob 定位到 bulk_send_v1/poll.go，再 read 该文件确认。全程不猜路径。"

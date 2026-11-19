@@ -3,6 +3,7 @@
  * 这里只放纯函数：校验每个模型的产物完整、按固定顺序合并。
  */
 import type { CaseResult } from './score.ts';
+import { slotKey } from './protocol.ts';
 
 export interface RunMeta {
   mode: 'serial' | 'parallel';
@@ -16,6 +17,8 @@ export interface RunMeta {
     status: 'complete' | 'incomplete';
     reason?: string;
     durationSec?: number;
+    exitCode?: number | null;
+    signal?: NodeJS.Signals | null;
   }>;
 }
 
@@ -37,9 +40,20 @@ export function checkPartition(
     expected.set(caseId, repeat);
   }
   const seen = new Map<string, number>();
+  const seenSlots = new Set<string>();
+  const indexed = results.some(({ repeatIndex }) => repeatIndex !== undefined);
   for (const r of results) {
     if (r.modelId !== modelId) return { ok: false, error: `结果含其他模型: ${r.modelId}` };
     if (!expected.has(r.caseId)) return { ok: false, error: `结果含未执行用例: ${r.caseId}` };
+    if (indexed) {
+      const { repeatIndex } = r;
+      if (repeatIndex === undefined || !Number.isInteger(repeatIndex) || repeatIndex < 0 || repeatIndex >= repeat) {
+        return { ok: false, error: `无效重复编号: ${r.caseId}/${repeatIndex}` };
+      }
+      const key = slotKey(modelId, { caseId: r.caseId, repeatIndex });
+      if (seenSlots.has(key)) return { ok: false, error: `结果槽位重复: ${key}` };
+      seenSlots.add(key);
+    }
     const n = (seen.get(r.caseId) ?? 0) + 1;
     if (n > repeat) return { ok: false, error: `用例结果重复: ${r.caseId}` };
     seen.set(r.caseId, n);
@@ -67,9 +81,11 @@ export function orderResults(
       queue.push(r);
       queues.set(r.caseId, queue);
     }
+    const indexed = (parts.get(modelId) ?? []).some(({ repeatIndex }) => repeatIndex !== undefined);
     for (let i = 0; i < repeat; i++) {
       for (const caseId of caseIds) {
-        const row = queues.get(caseId)?.[i];
+        const queue = queues.get(caseId);
+        const row = indexed ? queue?.find(({ repeatIndex }) => repeatIndex === i) : queue?.[i];
         if (row) out.push(row);
       }
     }

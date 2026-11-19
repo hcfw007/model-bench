@@ -8,7 +8,11 @@
   "prompt": "并行派两个 subagent：A 修 Go 侧 poll.go 的收敛条件（失败对象也要能 FINISHED），B 修 TS 侧 ConfirmListPanel 的按钮隐藏。两者完成后你来合并结果，跑 go build 与 go test，并明确报告两边各自改了什么、有没有冲突。",
   "allowedTurns": 14,
   "assertions": [
-    { "type": "subagents", "min": 2, "parallel": true },
+    {
+      "type": "subagents",
+      "parallel": true,
+      "tasks": ["\\bpoll\\.go\\b|\\bSyncJob\\b", "\\bConfirmListPanel\\b"]
+    },
     { "type": "cmd", "run": "go build ./...", "expect": "exit0" },
     { "type": "cmd", "run": "go test ./... -count=1", "expect": "exit0" },
     { "type": "textMatch", "must": ["poll.go", "ConfirmListPanel"] }

@@ -11,7 +11,13 @@
     { "type": "nestedAgents", "minDepth": 2 },
     { "type": "subagents", "min": 3 },
     { "type": "noToolErrorMatching", "pattern": "depth limit" },
-    { "type": "diffFiles", "mustInclude": ["confirm.go", "ConfirmListPanel.tsx"] },
+    {
+      "type": "diffFiles",
+      "mustInclude": [
+        "go-projects/some-service/internal/biz/bulk_send_v1/confirm.go",
+        "ts-projects/web-console/src/Pages/BulkSendV1/Components/ConfirmListPanel.tsx"
+      ]
+    },
     { "type": "cmd", "run": "go build ./...", "expect": "exit0" },
     { "type": "textMatch", "mustAny": ["2 层", "两层", "二层", "depth 2", "负责人", "工匠"] }
   ],

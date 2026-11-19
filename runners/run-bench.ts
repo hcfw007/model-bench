@@ -1,25 +1,49 @@
-import { mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { loadConfig, type ModelSpec } from './lib/config.ts';
 import { loadCases, type CaseDef } from './lib/runner.ts';
 import { runSerialModels } from './lib/run-serial.ts';
 import { runParallelModels } from './lib/run-parallel.ts';
 import { writeFinalReports } from './lib/report.ts';
-import { leaderboard, type ModelScore } from './lib/score.ts';
-import type { RunMeta } from './lib/parallel.ts';
+import { leaderboard } from './lib/score.ts';
+import { digestOf, expectedSlots, FORMAL_CONCURRENCY, FORMAL_REPEAT, type BenchMode, type ProtocolLock } from './lib/protocol.ts';
+import { freezeProtocol, resolveIdentities, verifyWorkerInputs } from './lib/protocol-freeze.ts';
+import { readRunResults } from './lib/report.ts';
+import { makeRepairPlan, type RunResults } from './lib/protocol-results.ts';
+import { validateFormal } from './lib/protocol-validate.ts';
+import { assertMockRepoClean, mockRepoHead, mockRepoMain, normalizeWorkerConfig } from './lib/worker.ts';
+import { contentDigest } from './lib/protocol-release.ts';
+import { preflightMatches, runIsolationPreflight } from './lib/protocol-isolation.ts';
+import { bindPodmanDelivery } from './lib/turn-run-podman.ts';
 
 const SUPPORTED = new Set([
-  'cmd', 'diffFiles', 'diffLines', 'fileContains', 'fileNotContains',
+  'cmd', 'diffFiles', 'diffLines', 'diffAddedText', 'fileContains', 'fileNotContains',
   'turns', 'toolCalls', 'toolErrors', 'toolSequence', 'subagents', 'nestedAgents',
   'compactionSurvived', 'modelSwitches', 'timeout', 'tokens',
   'textMatch', 'exactText', 'textRatioCJK', 'noForbidden',
   'noEditsAfterTurn', 'noToolErrorMatching', 'textMatchRegex', 'shellCommandMatches',
+  'scenario', 'toolOrder', 'autoTagConclusion',
 ]);
 
 const args = process.argv.slice(2);
+const booleanFlags = new Set(['--dry-run', '--lock-only']);
+const valueFlags = new Set(['--mode', '--repair', '--layers', '--cases', '--models', '--repeat', '--concurrency', '--out', '--isolation-config']);
+const usedFlags = new Set<string>();
+for (let index = 0; index < args.length; index += 1) {
+  const flag = args[index];
+  if (usedFlags.has(flag) || (!booleanFlags.has(flag) && !valueFlags.has(flag))) throw new Error(`无效或重复参数: ${flag}`);
+  usedFlags.add(flag);
+  if (valueFlags.has(flag)) {
+    const value = args[++index];
+    if (!value || value.startsWith('--')) throw new Error(`${flag} 缺少值`);
+  }
+}
 function arg(name: string, fallback: string): string {
   const i = args.indexOf(`--${name}`);
-  return i >= 0 && args[i + 1] ? args[i + 1] : fallback;
+  if (i < 0) return fallback;
+  const value = args[i + 1];
+  if (!value || value.startsWith('--')) throw new Error(`--${name} 缺少值`);
+  return value;
 }
 function list(name: string, fallback: string): string[] {
   return arg(name, fallback).split(',').map((s) => s.trim()).filter(Boolean);
@@ -28,15 +52,69 @@ function list(name: string, fallback: string): string[] {
 const root = resolve(import.meta.dirname, '..');
 const configPath = resolve(root, 'bench.config.jsonc');
 const cfg = loadConfig(configPath);
+const casesRoot = resolve(root, 'cases');
+const isWorker = process.env.OPENCODE_BENCH_WORKER === '1';
+const isolationPath = arg('isolation-config', '');
+
+function runWorker(): void {
+  if (process.getuid?.() === 0 || process.geteuid?.() === 0) throw new Error('worker 不允许以 root 执行');
+  const lock = JSON.parse(readFileSync(resolve(root, 'protocol.lock.json'), 'utf8')) as ProtocolLock;
+  if (Boolean(lock.manifest.isolation) !== Boolean(isolationPath)) throw new Error('worker 隔离选项与协议锁不一致');
+  verifyWorkerInputs(root, cfg.bench.opencodeBin, lock);
+  if (lock.manifest.mockRepoCommit !== mockRepoHead(cfg.bench.mockRepo)) throw new Error('worker 测试床提交不符');
+  const model = lock.models.find(({ id }) => id === arg('models', ''));
+  if (!model) throw new Error('worker 未选中锁定模型');
+  const isolated = isolationPath ? runIsolationPreflight(isolationPath, [model.id]) : undefined;
+  if (isolated) {
+    const expected = lock.preflight?.find(({ modelId }) => modelId === model.id);
+    if (!expected || isolated.preflight[0].containerId === expected.containerId || !preflightMatches(expected, isolated.preflight[0])
+      || digestOf(isolated.deployment) !== digestOf(lock.manifest.isolation)) {
+      throw new Error('worker 隔离预检或镜像运行时与协议锁不一致');
+    }
+  }
+  const isolationConfig = isolated?.configs.get(model.id);
+  if (isolated && !isolationConfig) throw new Error('worker 隔离预检未返回对应模型配置');
+  const layers = [...new Set(lock.manifest.cases.map(({ layer }) => layer))];
+  const available = new Map(loadCases(casesRoot, layers, []).map((caseDef) => [caseDef.id, caseDef]));
+  const cases = lock.manifest.cases.map(({ id }) => {
+    const caseDef = available.get(id);
+    if (!caseDef) throw new Error(`worker 缺少用例 ${id}`);
+    return lock.manifest.mode === 'formal' ? { ...caseDef, worktree: true } : caseDef;
+  });
+  runSerialModels({
+    cfg, casesRoot, cases, specs: [model], repeat: lock.manifest.repeat,
+    slots: expectedSlots(lock).filter(({ modelId }) => modelId === model.id),
+    outDir: resolve(root, arg('out', 'out')),
+    workerLock: lock,
+    ...(isolationConfig ? { deliveryAdapter: bindPodmanDelivery(lock, isolationConfig) } : {}),
+  });
+}
+
+if (isWorker) {
+  runWorker();
+  process.exit(0);
+}
+
+const modeArg = arg('mode', 'trial');
+if (modeArg !== 'trial' && modeArg !== 'formal') throw new Error('--mode 必须是 trial 或 formal');
+const mode: BenchMode = modeArg;
+const repairPath = arg('repair', '');
+if (repairPath && (mode !== 'formal' || ['models', 'cases', 'layers'].some((name) => args.includes(`--${name}`)))) {
+  throw new Error('补槽要求 --mode formal，模型/用例由主运行确定');
+}
+const base = repairPath ? readRunResults(resolve(root, repairPath)) : undefined;
+const repair = base && makeRepairPlan(base);
 const layers = list('layers', Object.keys(cfg.layers).filter((k) => cfg.layers[k]).join(','));
 const only = list('cases', '');
-const requested = [...new Set(list('models', cfg.models.map((m) => m.id).join(',')))];
-const repeat = Number(arg('repeat', String(cfg.run.repeat)));
+if (mode === 'formal' && (args.includes('--layers') || args.includes('--cases'))) throw new Error('正式运行不能筛选用例');
+const requested = [...new Set(repair
+  ? base!.protocol.models.filter(({ id }) => repair.slots.some(({ modelId }) => modelId === id)).map(({ id }) => id)
+  : list('models', cfg.models.map((m) => m.id).join(',')))];
+const repeat = Number(arg('repeat', String(mode === 'formal' ? FORMAL_REPEAT : cfg.run.repeat)));
 const dryRun = args.includes('--dry-run');
-const isWorker = process.env.OPENCODE_BENCH_WORKER === '1';
-const concurrency = Math.max(1, Math.floor(Number(arg('concurrency', String(cfg.run.concurrency))) || 1));
+const concurrency = Number(arg('concurrency', String(mode === 'formal' ? FORMAL_CONCURRENCY : cfg.run.concurrency)));
+if (![repeat, concurrency].every((value) => Number.isSafeInteger(value) && value > 0)) throw new Error('重复次数和并发必须为正整数');
 
-const casesRoot = resolve(root, 'cases');
 const cases: CaseDef[] = loadCases(casesRoot, layers, only);
 if (cases.length === 0) {
   console.error('没有匹配的 case。');
@@ -47,8 +125,21 @@ const specs: ModelSpec[] = [];
 for (const id of requested) {
   const spec = cfg.models.find((m) => m.id === id);
   if (spec) specs.push(spec);
-  else console.error(`跳过未知模型: ${id}`);
+  else throw new Error(`未知模型: ${id}`);
 }
+
+if (mode === 'formal') validateFormal({
+  benchmarkVersion: cfg.bench.version, repeat, concurrency, weights: cfg.weights,
+  cases: cases.map((c) => ({ id: c.id, layer: c.layer, weight: c.weight ?? 1, timeoutSec: c.timeoutSec ?? cfg.run.timeoutSec })),
+  handoff: cfg.run.switchModel && cfg.run.switchFallback
+    ? { primary: cfg.run.switchModel, fallback: cfg.run.switchFallback } : undefined,
+}, resolveIdentities(specs));
+if (base && digestOf(resolveIdentities(specs)) !== digestOf(base.protocol.models.filter(({ id }) => requested.includes(id)))) {
+  throw new Error('当前模型身份或档位与主运行不一致');
+}
+const unsupported = cases.flatMap((caseDef) => caseDef.assertions
+  .filter(({ type }) => !SUPPORTED.has(String(type))).map(({ type }) => `${caseDef.id}/${String(type)}`));
+if (!dryRun && unsupported.length > 0) throw new Error(`不支持的断言: ${unsupported.join(', ')}`);
 if (specs.length === 0) {
   console.error('没有可用模型。');
   process.exit(1);
@@ -73,49 +164,61 @@ if (dryRun) {
     for (const c of rows) console.log(`      - ${c.id}  ${c.title}`);
   }
   console.log(`\n  模型: ${specs.map((s) => s.id).join(', ')}`);
-  console.log(`  预计执行: ${specs.length * cases.length * repeat} 次会话`);
-  console.log(`  并行: ${concurrency}${concurrency > 1 ? '（每模型独立克隆 mockrepo）' : '（串行，不使用克隆）'}`);
+  console.log(`  模式: ${mode}；预计执行 ${repair?.slots.length ?? specs.length * cases.length * repeat} 个用例槽位`);
+  console.log(`  并发: ${concurrency}${concurrency === 1 ? '（串行）' : '（每模型独立克隆 mockrepo）'}`);
   console.log(bad === 0 ? '\n  ✓ 所有断言类型可执行\n' : `\n  ✗ ${bad} 个 case 有问题\n`);
   process.exit(bad === 0 ? 0 : 1);
 }
 
+if (mode === 'formal' && !isolationPath) throw new Error('正式执行及 --lock-only 必须指定 --isolation-config');
+if (process.getuid?.() === 0 || process.geteuid?.() === 0) throw new Error('run-bench 不允许以 root 执行');
+
 const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-const outDir = resolve(root, arg('out', `reports/${stamp}`));
-mkdirSync(outDir, { recursive: true });
-const startedAt = new Date();
+const outDir = resolve(root, arg('out', `reports/${mode}/${stamp}`));
+if (existsSync(resolve(outDir, 'results.json')) || existsSync(resolve(outDir, 'protocol.lock.json'))) throw new Error('输出目录已有运行记录');
 
-if (!isWorker) console.log(`并行度 ${concurrency}｜模型 ${specs.length} 个｜用例 ${cases.length} 个｜重复 ${repeat} 次`);
-let skipped: Array<{ modelId: string; reason: string }> = [];
-let meta: RunMeta;
-let scores: ModelScore[];
-
-if (isWorker || concurrency === 1) {
-  const results = runSerialModels({ cfg, casesRoot, cases, specs, repeat, outDir });
-  const finishedAt = new Date();
-  meta = {
-    mode: 'serial',
-    concurrency: 1,
-    startedAt: startedAt.toISOString(),
-    finishedAt: finishedAt.toISOString(),
-    wallSec: Math.round((finishedAt.getTime() - startedAt.getTime()) / 1000),
-    workers: specs.map((s) => ({ modelId: s.id, status: 'complete' as const })),
-  };
-  scores = writeFinalReports({ outDir, cfg, results, meta, skipped });
-} else {
-  const outcome = await runParallelModels({
-    cfg, configPath, repoRoot: root, cases, specs, repeat, concurrency, layers, only, outDir,
+function writeLocalLock(): ProtocolLock {
+  const isolated = isolationPath ? runIsolationPreflight(isolationPath, specs.map(({ id }) => id)) : undefined;
+  assertMockRepoClean(cfg.bench.mockRepo);
+  const lock = freezeProtocol({
+    root, mockRepoCommit: mockRepoMain(cfg.bench.mockRepo), mode, concurrency, repeat, layers, only,
+    models: resolveIdentities(specs), normalizedConfig: normalizeWorkerConfig(configPath), preflight: isolated?.preflight,
+    isolation: isolated?.deployment,
   });
-  skipped = outcome.skipped;
-  meta = outcome.meta;
-  scores = writeFinalReports({ outDir, cfg, results: outcome.results, meta, skipped });
+  mkdirSync(outDir, { recursive: true });
+  writeFileSync(resolve(outDir, 'protocol.lock.json'), `${JSON.stringify(lock, null, 2)}\n`, { flag: 'wx' });
+  return lock;
 }
 
-if (skipped.length > 0) {
-  console.error(`\n${skipped.length} 个模型未完成，已排除出评分：${skipped.map((s) => s.modelId).join(', ')}`);
-  process.exitCode = 1;
+if (args.includes('--lock-only')) {
+  if (repair) throw new Error('--lock-only 不接受补槽参数');
+  const lock = writeLocalLock();
+  console.log(`冻结内容摘要: ${contentDigest(lock)}\n锁清单: ${resolve(outDir, 'protocol.lock.json')}`);
+  process.exit(0);
 }
 
-if (!isWorker) {
-  console.log(`\n${leaderboard(scores)}\n`);
-  console.log(`报告目录: ${outDir}`);
+function runSerialTrial(): RunResults {
+  const protocol = writeLocalLock();
+  const startedAt = new Date();
+  const results = runSerialModels({ cfg, casesRoot, cases, specs: [...protocol.models], repeat, outDir, workerLock: protocol });
+  const finishedAt = new Date();
+  verifyWorkerInputs(root, cfg.bench.opencodeBin, protocol, normalizeWorkerConfig(configPath));
+  if (mockRepoMain(cfg.bench.mockRepo) !== protocol.manifest.mockRepoCommit) throw new Error('串行测试床提交在试跑期间变化');
+  return { protocol, config: cfg, results, meta: {
+    mode: 'serial', concurrency, mockRepoCommit: protocol.manifest.mockRepoCommit,
+    startedAt: startedAt.toISOString(), finishedAt: finishedAt.toISOString(),
+    wallSec: Math.round((finishedAt.getTime() - startedAt.getTime()) / 1000),
+    workers: specs.map(({ id: modelId }) => ({ modelId, status: 'complete' })),
+  } };
 }
+
+console.log(`${mode}｜并发 ${concurrency}｜模型 ${specs.length} 个｜${repair?.slots.length ?? specs.length * cases.length * repeat} 个用例槽位`);
+const outcome = concurrency === 1 && !isolationPath ? runSerialTrial() : { config: cfg, ...await runParallelModels({
+  cfg, configPath, repoRoot: root, cases, specs, repeat, concurrency, layers, only, outDir, mode,
+  repair, expectedDigest: base?.protocol.digest, expectedPreflight: base?.protocol.preflight, isolationConfigPath: isolationPath || undefined,
+}) };
+const { scores, excluded } = writeFinalReports(outDir, outcome);
+if (outcome.meta.workers.some(({ status }) => status !== 'complete')
+  || outcome.results.some(({ outcome: result }) => result === 'error' || result === 'missing_evidence')) process.exitCode = 1;
+if (excluded.length > 0) console.error(`\n未入排行：${excluded.map(({ modelId, reason }) => `${modelId} (${reason})`).join(', ')}`);
+console.log(`\n${leaderboard(scores)}\n报告目录: ${outDir}`);

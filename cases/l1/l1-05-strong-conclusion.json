@@ -5,33 +5,10 @@
   "title": "该下强结论时下强结论（自动标签未实现）",
   "why": "真实 #18：任务 FINISHED、客户 tags 为空。我当时要的是「代码实锤」而不是含糊其辞。有代码证据却不给结论，同样是失败。",
   "worktree": true,
-  "prompt": "fixtures/mongo/contact_data.json 是测试号在任务 FINISHED 后的客户档案，tags 为空。判断自动标签功能到底实现了没有，并给出代码层证据。",
+  "prompt": "fixtures/mongo/contact_data.json 是测试号在任务 FINISHED 后的客户档案，tags 为空。检索代码，判断任务完成后是否真的会自动给客户打标。回答中各写且只写一次这三行：① `任务完成后自动打标：已实现` 或 `任务完成后自动打标：未实现`（二选一）；② `完成路径证据：` 加上具体代码位置与收尾行为；③ `调用缺口证据：` 加上打标方法名及其在这条路径中的调用情况。可以在三行外补充配置保存、展示或其它说明。",
   "allowedTurns": 8,
   "assertions": [
-    {
-      "type": "textMatch",
-      "must": [
-        "MarkTag",
-        "poll.go"
-      ],
-      "mustAny": [
-        "未实现",
-        "没有调用",
-        "没有执行",
-        "缺失"
-      ],
-      "mustNot": [
-        "已实现",
-        "会自动打标"
-      ]
-    },
-    {
-      "type": "shellCommandMatches",
-      "pattern": "grep|rg ",
-      "orTools": [
-        "grep"
-      ]
-    }
+    { "type": "autoTagConclusion" }
   ],
-  "gold": "全仓 grep MarkTag：只有 contact-data-service 的实现，some-service 的 bulk_send_v1 目录零调用；poll.go 收尾只改状态。结论：功能未实现，不是配置问题。"
+  "gold": "全仓搜索 MarkTag 找到接口与底层实现。输出：任务完成后自动打标：未实现\n完成路径证据：poll.go 的 SyncJob 置 FINISHED 后只调用 repo.Update。\n调用缺口证据：存在 CRMRepo.MarkTag 接口和底层实现，但群发收尾没有调用它。"
 }

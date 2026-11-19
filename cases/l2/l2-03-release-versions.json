@@ -12,7 +12,15 @@
     { "type": "fileContains", "path": "go-projects/auth-service/VERSION", "pattern": "1\\.4\\.0" },
     { "type": "fileContains", "path": "go-projects/contact-data-service/VERSION", "pattern": "1\\.4\\.0" },
     { "type": "fileContains", "path": ".tasks/bulk-send-v1/record.json", "pattern": "1\\.4\\.0" },
-    { "type": "diffFiles", "mustExclude": ["poll.go", "confirm.go", "create.go", "bulk_send_v1.service.ts"] },
+    {
+      "type": "diffFiles",
+      "mustExclude": [
+        "go-projects/some-service/internal/biz/bulk_send_v1/poll.go",
+        "go-projects/some-service/internal/biz/bulk_send_v1/confirm.go",
+        "go-projects/some-service/internal/biz/bulk_send_v1/create.go",
+        "ts-projects/api-bff/src/bulk_send_v1/bulk_send_v1.service.ts"
+      ]
+    },
     { "type": "diffLines", "max": 10 },
     { "type": "cmd", "run": "go build ./...", "expect": "exit0" }
   ],

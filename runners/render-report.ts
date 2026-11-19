@@ -4,6 +4,8 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { assertRunLock, renderRunReport } from './lib/report.ts';
+import type { RunResults } from './lib/protocol-results.ts';
 import { leaderboard, scoreModel, type CaseResult } from './lib/score.ts';
 
 const dir = process.argv[2];
@@ -17,7 +19,16 @@ const outDir = resolve(root, dir);
 const raw = JSON.parse(readFileSync(resolve(outDir, 'results.json'), 'utf8')) as {
   config: { weights: Record<string, number> };
   results: CaseResult[];
+  protocol?: unknown;
 };
+
+if (raw.protocol !== undefined) {
+  const data = raw as RunResults;
+  assertRunLock(outDir, data);
+  writeFileSync(resolve(outDir, 'RANKING.md'), renderRunReport(data));
+  console.log(resolve(outDir, 'RANKING.md'));
+  process.exit(0);
+}
 
 const weights = raw.config.weights;
 const results = raw.results;
@@ -93,5 +104,4 @@ for (const s of sorted) {
 }
 lines.push('');
 
-writeFileSync(resolve(outDir, 'RANKING.md'), lines.join('\n'));
-console.log(resolve(outDir, 'RANKING.md'));
+console.log(lines.join('\n'));
