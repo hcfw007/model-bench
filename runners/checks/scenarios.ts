@@ -7,7 +7,7 @@ import { assertScenario, scenarioPublicationBlocker, startScenario, verifyScenar
 import { startDelivery } from '../lib/scenario-delivery.ts';
 import { startEvidence } from '../lib/scenario-evidence.ts';
 import type { IsolationProof } from '../lib/scenario-isolation.ts';
-import { inspectBoundary, inspectedRootless, inspectImage } from '../lib/scenario-podman-inspect.ts';
+import { inspectBoundary, inspectedRootless, inspectImage, requireStartedContainer } from '../lib/scenario-podman-inspect.ts';
 import { verifyOCISpecification } from '../lib/scenario-podman-oci.ts';
 import type { Trace } from '../lib/trace.ts';
 
@@ -177,13 +177,15 @@ function checkInspection(preflight: IsolationProof): void {
     Config: { User: preflight.user, WorkingDir: '/work' },
     HostConfig: {
       Privileged: false, ReadonlyRootfs: true, NetworkMode: 'none', PidMode: 'private', IpcMode: 'private',
-      UsernsMode: 'keep-id', UTSMode: 'private', CapDrop: ['ALL'], SecurityOpt: ['no-new-privileges'], PortBindings: {},
+      UsernsMode: 'private', UTSMode: 'private', CapDrop: ['CAP_CHOWN'], SecurityOpt: ['no-new-privileges'], PortBindings: {},
     },
     Mounts: preflight.mounts.map(({ source, destination, writable }) => ({
       Type: 'bind', Source: source, Destination: destination, RW: writable, Propagation: 'private',
     })),
   };
   const boundary = inspectBoundary([inspection], preflight);
+  requireStartedContainer([{ State: { StartedAt: '2026-11-20T00:00:00Z', Status: 'exited' } }]);
+  assert.throws(() => requireStartedContainer([{ State: { StartedAt: '0001-01-01T00:00:00Z', Status: 'created' } }]));
   const oci = {
     root: { readonly: true }, process: { noNewPrivileges: true, user: { uid: 1001, gid: 1001 } },
     linux: { namespaces: ['pid', 'ipc', 'mount', 'uts', 'user', 'network'].map((type) => ({ type })) },

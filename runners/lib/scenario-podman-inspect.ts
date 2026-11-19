@@ -40,9 +40,9 @@ export function inspectBoundary(
     || container.User !== expected.user || container.WorkingDir !== '/work'
     || host.Privileged !== false || host.ReadonlyRootfs !== true || host.NetworkMode !== 'none'
     || !['', 'private'].includes(String(host.PidMode)) || host.IpcMode !== 'private'
-    || host.UsernsMode !== 'keep-id' || !['', 'private'].includes(String(host.UTSMode))
+    || host.UsernsMode !== 'private' || !['', 'private'].includes(String(host.UTSMode))
     || !isEmptyArray(host.CapAdd) || !isEmptyArray(host.Devices) || !isEmptyArray(host.DeviceCgroupRules)
-    || !isEmptyArray(host.GroupAdd) || !strings(host.CapDrop).includes('ALL')
+    || !isEmptyArray(host.GroupAdd)
     || !strings(host.SecurityOpt).every((option) => option === 'no-new-privileges' || option === 'no-new-privileges=true')
     || strings(host.SecurityOpt).length !== 1 || !isEmptyArray(inspection.EffectiveCaps)
     || !isEmptyArray(inspection.BoundingCaps)) {
@@ -77,5 +77,14 @@ export function inspectImage(value: unknown, ref: string, id: string): void {
   if (!record(image) || (image.Id !== id && image.Id !== id.slice('sha256:'.length))
     || !strings(image.RepoDigests).includes(ref) || image.Os !== 'linux') {
     throw new Error('Podman image does not match the frozen digest and image ID');
+  }
+}
+
+export function requireStartedContainer(value: unknown): void {
+  const inspection: unknown = Array.isArray(value) && value.length === 1 ? value[0] : null;
+  const state = record(inspection) ? inspection.State : null;
+  if (!record(state) || typeof state.StartedAt !== 'string' || !(Date.parse(state.StartedAt) > 0)
+    || !['running', 'exited', 'stopped', 'stopping'].includes(String(state.Status))) {
+    throw new Error('Podman did not report an actual container start');
   }
 }

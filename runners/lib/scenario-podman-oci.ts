@@ -28,12 +28,15 @@ function permittedKernelMount(mount: Record<string, unknown>): boolean {
   return typeof mount.destination === 'string' && expected.get(mount.destination) === mount.type;
 }
 
-function generatedFile(mount: Record<string, unknown>, staticDir: string): boolean {
+function generatedFile(mount: Record<string, unknown>, staticDir: string, containerId: string): boolean {
   const expected: Record<string, string> = {
     '/etc/hostname': 'hostname', '/etc/resolv.conf': 'resolv.conf', '/run/.containerenv': '.containerenv',
+    '/etc/passwd': 'passwd', '/etc/group': 'group',
   };
   if (typeof mount.destination !== 'string' || !Object.hasOwn(expected, mount.destination)) return false;
-  return mount.source === `${staticDir}/${expected[mount.destination]}` && mount.type === 'bind';
+  const name = expected[mount.destination];
+  return mount.type === 'bind' && typeof mount.source === 'string' && (mount.source === `${staticDir}/${name}`
+    || (isAbsolute(mount.source) && mount.source.endsWith(`/overlay-containers/${containerId}/userdata/${name}`)));
 }
 
 export function verifyOCISpecification(spec: unknown, staticDir: string, boundary: PodmanBoundary): void {
@@ -65,11 +68,14 @@ export function verifyOCISpecification(spec: unknown, staticDir: string, boundar
     if (!record(mount) || typeof mount.destination !== 'string') throw new Error('Invalid OCI mount');
     const binding = expected.get(mount.destination);
     if (binding && mount.type === 'bind' && mount.source === binding.source
-      && Array.isArray(mount.options) && mount.options.includes(binding.writable ? 'rw' : 'ro')) {
+      && Array.isArray(mount.options) && mount.options.includes(binding.writable ? 'rw' : 'ro')
+      && !mount.options.includes('rbind') && !mount.options.includes('shared') && !mount.options.includes('rshared')) {
       expected.delete(mount.destination);
       continue;
     }
-    if (!permittedKernelMount(mount) && !generatedFile(mount, staticDir)) throw new Error('Unexpected mount in OCI specification');
+    if (!permittedKernelMount(mount) && !generatedFile(mount, staticDir, boundary.containerId)) {
+      throw new Error(`Unexpected mount in OCI specification: ${mount.destination}`);
+    }
   }
   if (expected.size !== 0) throw new Error('Required OCI mount missing');
 }

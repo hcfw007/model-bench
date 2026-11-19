@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import type { IsolationConfig } from './scenario-isolation-config.ts';
-import { inspectBoundary, inspectedRootless, inspectImage, type PodmanBoundary, type PodmanMount } from './scenario-podman-inspect.ts';
+import { inspectBoundary, inspectedRootless, inspectImage, requireStartedContainer, type PodmanBoundary, type PodmanMount } from './scenario-podman-inspect.ts';
 import { inspectOCISpecification } from './scenario-podman-oci.ts';
 
 export interface IsolationProof extends PodmanBoundary {
@@ -77,13 +77,13 @@ function createArgs(
   mounts: PodmanMount[], args: string[],
 ): string[] {
   const bindings = mounts.flatMap(({ source, destination, writable }) => [
-    '--mount', `type=bind,source=${source},destination=${destination},${writable ? 'rw' : 'ro'},bind-propagation=private`,
+    '--mount', `type=bind,source=${source},destination=${destination},${writable ? 'rw' : 'ro'},bind-propagation=private,bind-nonrecursive`,
   ]);
   return [
-    'create', '--name', name, '--pull=never', '--network=none', '--pid=private', '--ipc=private', '--hooks-dir', hooksDirectory,
+    '--hooks-dir', hooksDirectory, 'create', '--name', name, '--pull=never', '--network=none', '--pid=private', '--ipc=private',
     '--uts=private', '--cgroupns=private', '--userns=keep-id', '--user', user, '--cap-drop=ALL',
     '--security-opt=no-new-privileges', '--read-only', '--read-only-tmpfs=false', '--tmpfs=/tmp:rw,nosuid,nodev,noexec',
-    '--pids-limit=256', '--no-hosts', '--http-proxy=false', '--image-volume=ignore', '--systemd=false',
+    '--pids-limit=256', '--no-hosts', '--no-healthcheck', '--http-proxy=false', '--image-volume=ignore', '--systemd=false',
     '--workdir=/work', '--env=HOME=/model-home', '--env=XDG_CONFIG_HOME=/model-home/.config',
     '--env=XDG_DATA_HOME=/model-home/.local/share', '--env=XDG_CACHE_HOME=/model-home/.cache',
     '--env=XDG_STATE_HOME=/model-home/.local/state', '--env=OPENCODE_BENCH=1', '--entrypoint', program,
@@ -110,12 +110,14 @@ function execute(
     if (!/^[a-f0-9]{64}$/.test(containerId)) throw new Error('Podman returned an invalid container ID');
     const expected = { containerId, imageId: config.imageId, program, user, mounts };
     const inspect = (): unknown => JSON.parse(response(config, ['container', 'inspect', containerId]));
-    response(config, ['init', containerId]);
+    response(config, ['--hooks-dir', workspace.hooksDirectory, 'init', containerId]);
     const initialized = inspect();
     const initialBoundary = inspectBoundary(initialized, expected);
     const ociDigest = inspectOCISpecification(initialized, initialBoundary);
-    const child = invoke(config, ['start', '--attach', containerId], timeoutMs);
-    const boundary = inspectBoundary(inspect(), expected);
+    const child = invoke(config, ['--hooks-dir', workspace.hooksDirectory, 'start', '--attach', containerId], timeoutMs);
+    const completed = inspect();
+    requireStartedContainer(completed);
+    const boundary = inspectBoundary(completed, expected);
     return {
       child, proof: { ...boundary, backend: 'rootless-podman-v1', isolationId: config.isolationId,
         modelId: config.modelId, image: config.image, programVersion: config.version, runtimeVersion, ociDigest },
