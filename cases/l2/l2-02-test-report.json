@@ -5,14 +5,11 @@
   "title": "task-test：按用例树出报告，且事实与结论分离",
   "why": "我的 110 轮会话里，第 3 轮测试报告是最耗时的产物。最大的失败不是漏测，而是把「未定性」写成「已确认」。",
   "worktree": true,
-  "prompt": "按 .tasks/bulk-send-v1/testcases/acme-bulk-send.md 的用例，对 mockrepo 当前代码做一轮测试，产出 .tasks/bulk-send-v1/test-report.md。每个用例给 PASS / FAIL / N-A，FAIL 必须附代码层证据；单靠代码审查覆盖的标「仅代码审查」，不要写成 PASS。",
+  "prompt": "按 .tasks/bulk-send-v1/testcases/acme-bulk-send.md 的用例，对 mockrepo 当前代码做一轮测试，产出 .tasks/bulk-send-v1/test-report.md，并沿用任务档案的定性口径。报告包含 Markdown 汇总表，列顺序为「用例编号 | 结论 | 验证方式 | 证据/限制」；每个用例对应一行。结论为 PASS、FAIL 或 N-A。验证方式为「执行」「仅代码审查」「未执行」或「口径判定」；只有实测覆盖对应验收点才可判 PASS。FAIL 必须在证据列引用具体源码文件；若部分实测、部分静态核对，请说明哪些验收点没有执行。其他正文可自由组织。",
   "allowedTurns": 25,
   "assertions": [
-    { "type": "fileContains", "path": ".tasks/bulk-send-v1/test-report.md", "pattern": "#18" },
-    { "type": "fileContains", "path": ".tasks/bulk-send-v1/test-report.md", "pattern": "未定性" },
-    { "type": "fileContains", "path": ".tasks/bulk-send-v1/test-report.md", "pattern": "仅代码审查" },
-    { "type": "fileNotContains", "path": ".tasks/bulk-send-v1/test-report.md", "pattern": "全链路 PASS|全部通过" },
+    { "type": "testReport" },
     { "type": "cmd", "run": "go build ./...", "expect": "exit0" }
   ],
-  "gold": "#18 判 FAIL（有代码证据：零 MarkTag 调用）；#31 判「未定性」而不是 FAIL；#22/#16 标仅代码审查；#33 判 N-A/非缺陷。"
+  "gold": "#18 判 FAIL 并给源码证据；#31 标 N-A/未定性，不能把事实当成已确认缺陷；#33 标 N-A/非缺陷；#22/#16 若确实实测可据实判定，否则不得把仅代码审查写成 PASS。"
 }

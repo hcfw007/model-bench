@@ -6,6 +6,8 @@ import { DatabaseSync } from 'node:sqlite';
 
 import { assertArtifact, type AssertResult } from './assert-artifacts.ts';
 import { assertTrajectory } from './assert-trajectory.ts';
+import { assertReviewHandoff } from './l2-review-handoff.ts';
+import { assertTestReport } from './l2-test-report.ts';
 import type { BenchConfig } from './config.ts';
 import { snapshotTree } from './net-diff.ts';
 import { assertScenario, startScenario } from './scenarios.ts';
@@ -91,7 +93,9 @@ function evaluateCase(
   }
   for (const assertion of caseDef.assertions) {
     if (hasScenario && assertion.type === 'scenario') continue;
-    const result = assertArtifact(assertion, ctx) ?? assertTrajectory(assertion, ctx);
+    const result = assertion.type === 'reviewHandoff' ? assertReviewHandoff(evidence.checkpoints)
+      : assertion.type === 'testReport' ? assertTestReport(cwd)
+      : assertArtifact(assertion, ctx) ?? assertTrajectory(assertion, ctx);
     recordAssertion(result ?? { type: String(assertion.type), pass: false, detail: 'unsupported assertion' });
   }
 }

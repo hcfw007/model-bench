@@ -20,7 +20,7 @@ const SUPPORTED = new Set([
   'compactionSurvived', 'modelSwitches', 'timeout', 'tokens',
   'textMatch', 'exactText', 'textRatioCJK', 'noForbidden',
   'noEditsAfterTurn', 'noToolErrorMatching', 'textMatchRegex', 'shellCommandMatches',
-  'scenario', 'toolOrder', 'autoTagConclusion',
+  'scenario', 'toolOrder', 'autoTagConclusion', 'testReport', 'reviewHandoff',
 ]);
 
 const args = process.argv.slice(2);

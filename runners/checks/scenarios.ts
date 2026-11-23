@@ -7,7 +7,10 @@ import { mock } from 'node:test';
 import { assertScenario, startScenario } from '../lib/scenarios.ts';
 import { startEvidence } from '../lib/scenario-evidence.ts';
 import { isDeliveryPair } from '../lib/scenario-grading.ts';
+import { assertReviewHandoff } from '../lib/l2-review-handoff.ts';
+import { gradeTestReport } from '../lib/l2-test-report.ts';
 import type { Trace } from '../lib/trace.ts';
+import type { TurnCheckpoint } from '../lib/turn-run-types.ts';
 
 function runDeliveryTest(cwd: string, defect?: string): void {
   const scenario = startScenario('l2-07', cwd);
@@ -147,19 +150,60 @@ function checkEvidenceRequiresUnprivilegedRunner(cwd: string): void {
   }
 }
 
+function checkReviewHandoff(): void {
+  const turns = [1, 2, 3].map((turn): TurnCheckpoint => ({
+    turn, modelRef: 'offline', sessionId: 'offline', answer: '', finalObserved: true, toolCalls: [],
+    process: { status: 'exited', exitCode: 0, signal: null, durationMs: 0 },
+    netTrees: { base: 'base-tree', end: 'patched-tree' },
+  }));
+  const [first, second, third] = turns;
+  const valid = {
+    ...third,
+    answer: '没有找到第三处渲染点。未核实机器人看到的版本。\n'
+      + '{"action":"verify_review_revision","detail":"比对评审用提交 SHA 和本地修复所在提交"}',
+  };
+  assert.equal(assertReviewHandoff([first, second, valid]).pass, true);
+  assert.equal(assertReviewHandoff([first, second, { ...valid, netTrees: { base: 'base-tree', end: 'edited-in-shell' } }]).pass, false);
+  assert.equal(assertReviewHandoff([first, second, { ...third, answer: '人工？这次不再改。' }]).pass, false);
+  assert.equal(assertReviewHandoff([first, second, {
+    ...third,
+    answer: '{"action":"verify_review_revision","detail":"评审版本"}',
+  }]).pass, false);
+  assert.equal(assertReviewHandoff([first, second, { ...valid, finalObserved: false }]).missingEvidence, true);
+}
+
+function checkTestReport(): void {
+  const rows = ['01', '02', '03', '12', '16', '18', '19', '20', '22', '26', '28', '30', '31', '33'].map((id): string => {
+    if (id === '18') return '| #18 | FAIL | 仅代码审查 | `poll.go:24` 未调用 MarkTag |';
+    if (id === '31') return '| #31 | N-A | 未执行 | 未切换身份，暂不能判定 |';
+    if (id === '33') return '| #33 | N-A | 口径判定 | 提交卡片不等于发送 |';
+    if (id === '16' || id === '22') return `| #${id} | PASS | 执行 | 本地探针执行了对应验收条件 |`;
+    return `| #${id} | N-A | 未执行 | 缺少测试前置条件 |`;
+  });
+  const report = rows.join('\n');
+  assert.equal(gradeTestReport(report), null);
+  assert.match(gradeTestReport(report.replace('| #16 | PASS | 执行', '| #16 | PASS | 仅代码审查')) ?? '', /#16: PASS/);
+  assert.match(gradeTestReport(report.replace('`poll.go:24`', '代码里')) ?? '', /#18: FAIL/);
+  assert.match(gradeTestReport(`${report}\n${rows[0]}`) ?? '', /duplicate.*#01/);
+  assert.match(gradeTestReport(report.replace('暂不能判定', '已证实是缺陷') + '\n其他问题未定性') ?? '', /#31/);
+  assert.match(gradeTestReport(rows.slice(1).join('\n')) ?? '', /missing.*#01/);
+}
+
 export function runScenarioTests(): void {
   const cwd = mkdtempSync(`${tmpdir()}/model-bench-scenario-checks-`);
   try {
+    checkReviewHandoff();
+    checkTestReport();
     checkEvidenceRequiresUnprivilegedRunner(cwd);
     for (const defect of [
-      undefined, 'extra-report', 'extra-key', 'bad-note',
+      undefined, 'with-note', 'extra-report', 'extra-key', 'bad-note',
       'early', 'repeat', 'skip-read', 'repeat-read', 'invalid-request', 'wrong-report',
     ]) {
       runDeliveryTest(cwd, defect);
     }
     for (const defect of [
-      undefined,
-      'inferred', 'old-ids', 'no-scope', 'contradict-scope', 'wrong-scope',
+      undefined, 'parenthesized-scope', 'bold-scope', 'bold-parenthesized-scope',
+      'inferred', 'old-ids', 'no-scope', 'contradict-scope', 'wrong-scope', 'conflicting-scope', 'quoted-question',
       'array', 'duplicate', 'conflict',
       'early', 'no-first-read', 'failed', 'wrong-path', 'missing-id',
     ]) runEvidenceTest(cwd, defect);

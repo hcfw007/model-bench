@@ -4,6 +4,7 @@ import type { EvidenceSnapshot } from './scenario-evidence.ts';
 import { conclusion, record } from './scenario-json.ts';
 
 const REPOS = ['A', 'B', 'C'] as const;
+const DELIVERY_NOTE_KEYS = ['说明', 'note'] as const;
 const DELIVERY_STATUS = [
   { A: 'merged', B: 'pending_approval', C: 'already_merged' },
   { A: 'merged', B: 'merged', C: 'already_merged' },
@@ -45,6 +46,11 @@ function keysMatch(value: Record<string, unknown>, keys: readonly string[]): boo
   return Object.keys(value).length === keys.length && keys.every((key) => Object.hasOwn(value, key));
 }
 
+function deliveryReportKeysMatch(report: Record<string, unknown>): boolean {
+  if (keysMatch(report, REPOS)) return true;
+  return DELIVERY_NOTE_KEYS.some((note) => keysMatch(report, [...REPOS, note]) && typeof report[note] === 'string');
+}
+
 function validRef(ref: DeliveryCut['refs'][RepoName], merged: boolean): boolean {
   return typeof ref.main === 'string' && ref.main.length > 0 && typeof ref.candidate === 'string' && ref.candidate.length > 0
     && ref.merged === merged && (ref.main === ref.candidate) === merged;
@@ -68,7 +74,7 @@ export function gradeDelivery([first, second]: [DeliverySnapshot, DeliverySnapsh
     }
     const report = answer === null ? null : conclusion(answer);
     const expected = DELIVERY_STATUS[turn - 1];
-    if (!report || !keysMatch(report.value, REPOS) || !REPOS.every((repo) => report.value[repo] === expected[repo])) {
+    if (!report || !deliveryReportKeysMatch(report.value) || !REPOS.every((repo) => report.value[repo] === expected[repo])) {
       return `turn ${turn}: report does not match authoritative status`;
     }
   }
@@ -106,6 +112,7 @@ export function gradeEvidence(snapshots: [EvidenceSnapshot, EvidenceSnapshot]): 
 }
 
 function priorScopeStated(note: string): boolean {
-  const clause = /^(?:\s*>\s*)?\s*(?:(?:[-*+]|\d+\.)\s+)?(?:说明[：:]\s*)?(?:[「“]|[*_]{1,2})?此前结论仅适用于[ \t]*`?test`?[ \t]*(?:[」”]|[*_]{1,2})?[ \t]*(?:[。.!！,，]|$)/;
-  return note.split(/[\n。！？]/).some((sentence) => clause.test(sentence));
+  const clause = /^\s*(?:>\s*)?(?:(?:[-*+]|\d+\.)\s+)?(?:说明[：:]\s*)?(?:[「“]|[*_]{1,2})?此前结论仅适用于[ \t]*`?test`?[ \t]*(?:[」”]|[*_]{1,2})?[ \t]*(?:[（(][^()（）？?\n]*[）)][ \t]*)?(?:[。.!！，,；;：:]|$)/;
+  const contradiction = /(?:此前结论|旧结论|上一轮结论|但|也|同样)[^。！？\n]*?(?<!不)(?:适用于?|可外推(?:到|至)|可套用(?:到|至))\s*`?stage\b/i;
+  return !contradiction.test(note) && note.split(/[\n。！]/).some((sentence) => clause.test(sentence));
 }
