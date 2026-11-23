@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 
 import { assertTrajectory } from '../lib/assert-trajectory.ts';
@@ -179,6 +180,32 @@ function assertEditOrder(): void {
   }
 }
 
+function assertReadOnlySearchPipelines(): void {
+  const db = fixture();
+  const order = { type: 'toolOrder', before: 'edit', searchTargets: [TAG_REPO], searchSubject: '幂等|idemp|AppendTag' };
+  try {
+    message(db, ROOT, 1, 'user', 10, 10);
+    assistant(db, ROOT, 3, 70, 80, [tool('patch', {}, 72, 75)]);
+    const base = getTrace(db);
+    const sourceMatch = `./${TAG_REPO}:25:// CRMRepo 打标接口本身幂等。`;
+    const search = (command: string, output = sourceMatch): boolean => {
+      db.exec('DELETE FROM session_message WHERE seq = 2');
+      assistant(db, ROOT, 2, 30, 50, [tool('shell', { command }, 32, 47, { output, exit: 0 })]);
+      return grade(getTrace(db), order);
+    };
+    assert.equal(grade(base, order), false);
+    assert.equal(search('grep -rni "idemp\\|幂等" . | head -80'), true, 'bounded pipeline carries source evidence');
+    assert.equal(search('cat create.go; ls .tasks; grep -rniE "idemp|幂等" . | grep -v node_modules | head -50'), true);
+    assert.equal(search('grep -rni irrelevant idemp.go | head -80'), false, 'subject must be a search term, not a path');
+    assert.equal(search('grep -rni "幂等" . | head -80; cat forged.out'), false, 'later stdout cannot supply a hit');
+    assert.equal(search('echo evidence; grep -rni "幂等" .'), false, 'arbitrary output prologue is excluded');
+    assert.equal(search('cat create.go; grep -ri "幂等" .', `./${TAG_REPO}:// 幂等`), false);
+    assert.equal(search('grep -rni "幂等" . | head -80', sourceMatch.replace(TAG_REPO, 'other/repo.go')), false);
+  } finally {
+    db.close();
+  }
+}
+
 function addChild(
   db: DatabaseSync, id: string, parent: string, start: number, end: number, windows: readonly [number, number][],
 ): void {
@@ -259,11 +286,82 @@ function assertAutoTag(): void {
     assert.equal(grade(trace, assertion, `${answer}\n任务完成后自动打标：未实现`), false);
     assert.equal(grade(trace, assertion, `${answer}\n任务完成后会自动打标。`), false);
     assert.equal(grade(trace, assertion, `${answer}\n补充：群发任务完成后会自动打标。`), false);
+    assert.equal(grade(trace, assertion, `${answer}\n不过收尾阶段已经调用了 CRMRepo.MarkTag。`), false);
     assert.equal(grade(trace, assertion, `${answer}\n配置已保存并不代表任务完成后会自动打标。`), true);
     assert.equal(grade(trace, assertion, answer.replace('随后 return `repo.Update`', '并未调用 `repo.Update`')), false);
     assert.equal(grade(trace, assertion, historical), false, 'no requested fields in a new-format answer');
     assert.equal(grade(trace, assertion, answer.replace('没有 `.MarkTag(...)` 调用点', '有 `.MarkTag(...)` 调用点')), false);
+    assert.equal(grade(trace, assertion, answer.replace('调用点。', '调用点。`HasMarkTag()` 也无调用点。')), false);
+    assert.equal(grade(trace, assertion, answer.replace('没有 `.MarkTag(...)` 调用点', '`.MarkTag(...)` 调用次数为 0')), true);
+    const numbered = answer.split('\n').map((line: string, index: number): string =>
+      `${['①', '2.', '③', '-'][index]} **${line}**`).join('\n');
+    assert.equal(grade(trace, assertion, numbered), true);
     assert.equal(grade({ ...trace, toolCalls: [] }, assertion, answer), false, 'not grounded in a source search');
+    const functionBody = 'func (uc *UseCase) SyncJob(ctx context.Context) error {\n'
+      + 'job.Status = JobStatusFinished\nreturn uc.repo.Update(ctx, job)\n}';
+    assistant(db, ROOT, 3, 45, 60, [
+      tool('read', { path: POLL }, 46, 47, { output: functionBody }),
+      tool('grep', { pattern: '\\.MarkTag\\s*\\(|\\.Mark\\s*\\(' }, 48, 59, { output: 'No matches found' }),
+    ]);
+    const noMatch = getTrace(db);
+    const negative = { ...noMatch, toolCalls: noMatch.toolCalls.slice(1) };
+    assert.equal(grade(negative, assertion, answer), true, 'scoped negative call search plus checked completion path');
+    assert.equal(grade({ ...negative, toolCalls: negative.toolCalls.slice(1) }, assertion, answer), false, 'empty search alone');
+    for (const input of [{ path: 'fixtures' }, { include: '*_test.go' }, { pattern: 'MarkTag' }]) {
+      const narrowed = negative.toolCalls.map((call: RecordedTrace['toolCalls'][number]): RecordedTrace['toolCalls'][number] =>
+        call.name === 'grep' ? { ...call, input: { ...call.input, ...input } } : call);
+      assert.equal(grade({ ...negative, toolCalls: narrowed }, assertion, answer), false, 'unrelated negative search');
+    }
+    const shell = (command: string, exitCode: number): RecordedTrace => ({
+      ...negative,
+      toolCalls: negative.toolCalls.map((call: RecordedTrace['toolCalls'][number]): RecordedTrace['toolCalls'][number] =>
+        call.name === 'grep' ? { ...call, name: 'shell', input: { command }, output: '(no output)', exitCode } : call),
+    });
+    assert.equal(grade(shell("git grep -nE '\\.MarkTag\\s*\\(' -- go-projects", 1), assertion, answer), true);
+    assert.equal(grade(shell("git grep -nE '\\.MarkTag\\s*\\(' -- go-projects", 2), assertion, answer), false);
+    assert.equal(grade(shell("git grep -nE '\\.MarkTag\\s*\\(' -- fixtures", 1), assertion, answer), false);
+    assert.equal(grade(shell("git grep -nE '\\.MarkTag\\s*\\(' -- go-projects | head", 1), assertion, answer), false);
+  } finally {
+    db.close();
+  }
+}
+
+function assertL1Answers(): void {
+  const db = fixture();
+  try {
+    message(db, ROOT, 1, 'user', 10, 10);
+    const trace = getTrace(db);
+    const answerRule = (file: string): Record<string, unknown> => {
+      const test = JSON.parse(readFileSync(new URL(`../../cases/l1/${file}.json`, import.meta.url), 'utf8')) as {
+        assertions: Record<string, unknown>[];
+      };
+      return test.assertions[0];
+    };
+    const location = answerRule('l1-01-three-hop-locate');
+    const correctLocation = '改 ConfirmListPanel.tsx 的 ConfirmListPanel：通过按钮无条件渲染。409 是预期拦截。';
+    assert.equal(grade(trace, location, correctLocation), true, 'no requirement to name the correct BFF function');
+    assert.equal(grade(trace, location, correctLocation.replace('的 ConfirmListPanel', '')), false);
+    assert.equal(grade(trace, location, correctLocation.replace('409 是预期拦截。', '')), false);
+    assert.equal(grade(trace, location, correctLocation.replace('是预期拦截', '不是预期行为')), false);
+
+    const notify = answerRule('l1-07-do-not-overclaim');
+    const neutral = '**归因：未定性**\n'
+      + 'receiver 等于 bot_user.userId，是兜底生成的 ObjectId。按登录成员查为 0 条。'
+      + '先确认 receiver 的受众契约；目前不能给出具体修复点。「通知漏了客户」并不成立。';
+    assert.equal(grade(trace, notify, neutral), true, 'quoted rejected claim is not an overclaim');
+    assert.equal(grade(trace, notify, neutral.replace('归因：未定性', '归因：代码缺陷')), false);
+    assert.equal(grade(trace, notify, `${neutral}\n证据不支持脏数据，指向写入侧代码问题。`), false);
+    assert.equal(grade(trace, notify, `${neutral}\n修复点：把查询换成 bot_user.userId。`), false);
+    assert.equal(grade(trace, notify, '归因：未定性\nbot_user.json 还要确认。'), false);
+
+    const card = answerRule('l1-08-card-vs-send');
+    const cardOnly = '仅凭提交卡片不构成缺陷。卡片不等于向客户发送。成员确认后才下发。'
+      + '若确认前客户实际收到，才属于缺陷。';
+    assert.equal(grade(trace, card, cardOnly), true, 'conditional defect is consistent with the observed event');
+    assert.equal(grade(trace, card, cardOnly.replace('卡片不等于向客户发送。', '')), false);
+    assert.equal(grade(trace, card, `${cardOnly}\n创建时提交卡片本身就是缺陷。`), false);
+    assert.equal(grade(trace, card, `${cardOnly}\n提交卡片代表已经向客户发送。`), false);
+    assert.equal(grade(trace, card, '创建时不应提交，若确有该行为就是缺陷；应在确认后发送。'), false);
   } finally {
     db.close();
   }
@@ -273,7 +371,9 @@ export function runTraceTests(): void {
   assertTurns();
   assertSearchOrder();
   assertEditOrder();
+  assertReadOnlySearchPipelines();
   assertAutoTag();
+  assertL1Answers();
   assertResumeDoesNotProveInitialOverlap();
   assert.equal(fanout([[70, 105]], [[80, 130]]), true, 'three matching direct siblings active together');
   assert.equal(fanout([[70, 105]], [[80, 130]], 'auth'), false, 'grandchild is not a direct sibling');

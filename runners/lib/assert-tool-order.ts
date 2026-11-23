@@ -8,6 +8,7 @@ type EvidenceResult = AssertResult & { missingEvidence?: true };
 const EDIT_TOOLS = new Set(['edit', 'patch', 'apply_patch', 'write', 'multiedit', 'multi_edit']);
 const SHELL_TOOLS = new Set(['shell', 'bash']);
 const SEARCH_COMMAND = /^(?:git\s+grep|grep|rg|find)(?:\s|$)/;
+const WORD = /"(?:\\.|[^"\\])*"|'[^']*'|[^\s'"|;&<>]+/g;
 const READ_COMMAND = /^(?:cat|sed|head|tail|nl|bat)(?:\s|$)/;
 const SHELL_EDIT = /(?:^|[;&|\n]\s*)(?:apply_patch|tee|touch|mkdir|mv|cp|rm|truncate|perl\s+-\S*i|sed\s+-\S*i)\b|(?:^|[^<>=])>>?\s*['"]?[\w./-]+\.(?:go|ts|tsx|js|json|md)\b|\b(?:write_text|write_bytes|writeFile(?:Sync)?|appendFile(?:Sync)?)\s*\(/;
 
@@ -33,6 +34,64 @@ function standalone(command: string): boolean {
   return command.length > 0 && !/[;|&<>\n`]|\$\(/.test(bare) && !/`|\$\(/.test(command);
 }
 
+function shellSearch(command: string): string | undefined {
+  if (/`|\$\(|\$\{|\n/.test(command)) return undefined;
+  const tokens = command.match(/"(?:\\.|[^"\\])*"|'[^']*'|[^\s'"|;&<>]+|[|;&<>]/g) ?? [];
+  if (tokens.some((token: string): boolean => ['&', '>', '<'].includes(token))) return undefined;
+  const separators = tokens.filter((token: string): boolean => token === ';' || token === '|');
+  const segments = tokens.join(' ').split(/(\s+[;|]\s+)(?=(?:[^"']|"[^"]*"|'[^']*')*$)/)
+    .filter((_segment: string, index: number): boolean => index % 2 === 0);
+  const searchIndex = segments.findIndex((segment: string): boolean => SEARCH_COMMAND.test(segment.trim()));
+  if (searchIndex === -1) return undefined;
+  if (separators.some((separator: string, index: number): boolean => separator !== (index < searchIndex ? ';' : '|'))) {
+    return undefined;
+  }
+  const search = segments[searchIndex].trim();
+  if (!standalone(search)) return undefined;
+  const prefixes = segments.slice(0, searchIndex);
+  if (prefixes.some((segment: string): boolean => !/^(?:cat|ls)(?:\s+[\w./-]+)+$/.test(segment.trim()))) return undefined;
+  const filters = segments.slice(searchIndex + 1);
+  if (filters.some((segment: string): boolean =>
+    !/^(?:head(?:\s+(?:-n\s+)?-?\d+)?|grep\s+-v\s+[\w./-]+)$/.test(segment.trim()))) return undefined;
+  // A read-only prologue can contribute arbitrary stdout. Require an explicit line number in that form.
+  if (prefixes.length && !/^(?:git\s+grep|grep|rg)\s+(?:-[a-zA-Z]*n[a-zA-Z]*\s|--line-number\s)/.test(search)) {
+    return undefined;
+  }
+  return search;
+}
+
+function searchQuery(command: string): string {
+  const words = command.match(WORD) ?? [];
+  const args = words.slice(command.startsWith('git ') ? 2 : 1);
+  const explicit = args.findIndex((word: string): boolean => word === '-e' || word === '--regexp');
+  if (explicit >= 0) return unquote(args[explicit + 1] ?? '');
+  const endOptions = args.indexOf('--');
+  if (endOptions === 0) return unquote(args[1] ?? '');
+  return unquote(args.find((word: string): boolean => !word.startsWith('-')) ?? '');
+}
+
+export function shellNegativeSearch(call: ToolCall, worktree: string): { query: string; scope: string } | undefined {
+  if (!SHELL_TOOLS.has(call.name)) return undefined;
+  const { command, cwd } = shellContext(call, worktree);
+  if (!standalone(command)) return undefined;
+  const prefix = /^(git\s+grep|grep|rg)\s+/.exec(command)?.[1];
+  if (!prefix) return undefined;
+  const args = command.slice(prefix.length).trim().match(WORD) ?? [];
+  const queryIndex = args.findIndex((word: string): boolean => !word.startsWith('-'));
+  if (queryIndex < 0) return undefined;
+  const options = args.slice(0, queryIndex).filter((option: string): boolean => option !== '--');
+  // Quiet/count/invert modes and path exclusions cannot establish a complete no-match search.
+  if (options.some((option: string): boolean => !/^-[EinrR]+$/.test(option)
+    && !/^--include=(?:\*\.go|"\*\.go"|'\*\.go')$/.test(option))) return undefined;
+  if (prefix === 'grep' && !options.some((option: string): boolean => /^-[EinrR]*[rR]/.test(option))) return undefined;
+  const paths = args.slice(queryIndex + 1).filter((path: string): boolean => path !== '--');
+  if (paths.length > 1 || (prefix === 'grep' && !paths.length)) return undefined;
+  const scope = repoPath(paths[0] ?? '.', cwd, worktree);
+  if (scope === '' && resolve(cwd, unquote(paths[0] ?? '.')).replace(/^\/private\/var\//, '/var/')
+    !== resolve(worktree).replace(/^\/private\/var\//, '/var/')) return undefined;
+  return { query: unquote(args[queryIndex]), scope: scope || '.' };
+}
+
 function repoPath(path: string, cwd: string, worktree: string): string {
   const canonical = (absolute: string): string => absolute.replace(/^\/private\/var\//, '/var/');
   const rel = relative(canonical(resolve(worktree)), canonical(resolve(cwd, unquote(path))));
@@ -48,21 +107,23 @@ export function matchedSearch(
   call: ToolCall, worktree: string, targets: readonly string[], subject?: RegExp,
   allowPathLookup = false,
 ): boolean {
-  if (!searchesSubject(call, worktree, targets, subject, allowPathLookup) || !call.output) return false;
+  if (!searchesSubject(call, worktree, targets, subject, allowPathLookup) || !call.output || call.outputCaptured === false) return false;
   const shell = SHELL_TOOLS.has(call.name);
   const { command, cwd } = shell ? shellContext(call, worktree) : { command: '', cwd: worktree };
-  const pathLookup = call.name === 'glob' || /^find\s/.test(command);
+  const search = shell ? shellSearch(command) ?? '' : '';
+  const pathLookup = call.name === 'glob' || /^find\s/.test(search);
+  const hasPrologue = shell && !SEARCH_COMMAND.test(command);
   let currentPath = '';
   for (const raw of call.output.split('\n')) {
     const line = raw.trim();
     if (line === '') continue;
-    if (/^Line \d+:/.test(line)) {
+    if (!shell && /^Line \d+:/.test(line)) {
       if (subject?.test(line) && targets.includes(currentPath)) return true;
       continue;
     }
     const { path, text } = pathAndMatch(line);
     currentPath = repoPath(path.trim(), cwd, worktree);
-    if (!targets.includes(currentPath)) continue;
+    if (!targets.includes(currentPath) || (hasPrologue && !/^[^:]+:\d+:/.test(line))) continue;
     if (!subject || pathLookup || subject.test(text)) return true;
   }
   return false;
@@ -73,12 +134,12 @@ export function searchesSubject(
 ): boolean {
   if (!toolSucceeded(call)) return false;
   const shell = SHELL_TOOLS.has(call.name);
-  const { command } = shell ? shellContext(call, worktree) : { command: '' };
-  if (shell ? !(SEARCH_COMMAND.test(command) && standalone(command)) : !['grep', 'glob'].includes(call.name)) {
+  const command = shell ? shellSearch(shellContext(call, worktree).command) : '';
+  if (command === undefined || (!shell && !['grep', 'glob'].includes(call.name))) {
     return false;
   }
   const pathLookup = call.name === 'glob' || /^find\s/.test(command);
-  const query = shell ? command : String(call.input.pattern ?? '');
+  const query = shell ? (pathLookup ? command : searchQuery(command)) : String(call.input.pattern ?? '');
   if (pathLookup) return allowPathLookup && targets.some((target: string): boolean => query.includes(basename(target)));
   return subject === undefined || subject.test(query);
 }

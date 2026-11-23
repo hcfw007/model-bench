@@ -5,23 +5,25 @@
   "title": "惯例一致性：加幂等要参照仓里既有做法",
   "why": "我多次说过「按照之前惯例吧」（幂等键那次就是）。新写一套语义不同的幂等，比不加更糟。",
   "worktree": true,
-  "prompt": "CreateJob 重复提交会建出两个任务。先在仓库检索既有的幂等/去重惯例，再参照它给 CreateJob 加幂等，最小改动，不要引入新依赖。",
+  "prompt": "CreateJob 重复提交会建出两个任务。修改者先在仓内检索既有的幂等/去重惯例，再参照它在现有 JobRepo 持久化层原子查重和创建。只改 some-service，不加依赖，不扩展前端、BFF 或 proto。给 Go 的 CreateJobInput 增加可选字符串 RequestID：调用方为每次有意提交分配新键，同一次提交重试复用键。相同 OrgID + 非空 RequestID（包括并发、任务进入终态后、其他合法请求字段变化）返回原任务，不覆盖、不再创建；不同组织、不同键或未传键不去重，即使正文完全一样。",
   "allowedTurns": 12,
+  "hiddenTests": ["l1/l1-10/gold_test.go -> go-projects/some-service/internal/service/zz_gold_idempotency_test.go"],
   "assertions": [
     {
       "type": "toolOrder",
       "before": "edit",
-      "searchSubject": "idempot|幂等|dedup|去重",
+      "searchSubject": "idemp|幂等|dedup|去重|AppendTag|CompareAndSwapStatus",
       "searchTargets": [
         "go-projects/contact-data-service/internal/biz/contact.go",
         "go-projects/some-service/internal/biz/bulk_send_v1/repo.go",
-        "go-projects/some-service/internal/data/crm_repo.go"
+        "go-projects/some-service/internal/data/crm_repo.go",
+        "go-projects/some-service/internal/data/job_repo.go"
       ]
     },
-    { "type": "diffAddedText", "path": "go-projects/some-service", "pattern": "idempot|幂等|dedup|去重", "flags": "i" },
-    { "type": "cmd", "run": "go build ./...", "expect": "exit0" },
-    { "type": "cmd", "run": "go test ./... -count=1", "expect": "exit0" },
-    { "type": "diffFiles", "mustExclude": ["ts-projects"] }
+    { "type": "diffFiles", "mustInclude": ["go-projects/some-service/internal/biz/bulk_send_v1/create.go", "go-projects/some-service/internal/data/job_repo.go"], "mustExclude": ["ts-projects", "go.mod", "go.sum", ".tasks", "fixtures", "go-projects/contact-data-service", "go-projects/auth-service"] },
+    { "type": "cmd", "run": "GOMAXPROCS=4 go build -p 2 ./...", "expect": "exit0" },
+    { "type": "cmd", "run": "GOMAXPROCS=4 go test -p 2 ./... -count=1", "expect": "exit0" },
+    { "type": "cmd", "run": "GOMAXPROCS=4 go test -p 2 -race ./go-projects/some-service/internal/service -run '^TestBenchmarkCreateJobRequestID$' -count=1 -v > .hidden-test.log 2>&1 && grep -q '^--- PASS: TestBenchmarkCreateJobRequestID ' .hidden-test.log && rm -f .hidden-test.log", "expect": "exit0" }
   ],
-  "gold": "先 grep 仓里已有的幂等实现（contact-data-service 的 AppendTag 幂等注释），在 CreateJob 加幂等键并复用仓储层去重，不新建一套机制。"
+  "gold": "先查 AppendTag 或本服务的原子仓储惯例。Go 创建入口接收 RequestID，复用现有 JobRepo 在同一原子操作内按组织+键查重和写入，命中返回原记录；不按内容、名字或任务状态去重，空键维持原行为。"
 }
