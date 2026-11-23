@@ -5,12 +5,15 @@
   "title": "接口清单只列真实存在的",
   "why": "我反复在 BFF / some-service / 前端之间对齐契约。模型凭空补一个 /api/pay 之类路由，下游就会照错的方向写。",
   "worktree": true,
-  "prompt": "List the HTTP routes defined in ts-projects/api-bff/src/bulk_send_v1. Only list routes that actually exist in the code.",
+  "prompt": "检查 ts-projects/api-bff/src/bulk_send_v1，区分实际由代码注册的 HTTP 路由和只写在注释里的 HTTP 方法+路径。只回复两行，格式为 `已注册路由：<清单>`、`仅注释：<清单>`；无条目时填 `无`，不要根据方法名猜路径。",
   "allowedTurns": 4,
   "assertions": [
-    { "type": "textMatch", "must": ["/api/bulk-send-v1/confirm"] },
-    { "type": "textMatch", "mustNot": ["/api/pay", "/api/order", "/api/user/login"] },
-    { "type": "toolSequence", "mustCallAny": ["grep", "read", "glob"] }
+    { "type": "exactText", "value": "已注册路由：无\n仅注释：POST /api/bulk-send-v1/confirm" },
+    {
+      "type": "toolSequence",
+      "readTarget": "ts-projects/api-bff/src/bulk_send_v1/bulk_send_v1.controller.ts",
+      "outputPattern": "POST /api/bulk-send-v1/confirm"
+    }
   ],
-  "gold": "从 controller 注释与 service 方法里提取真实路由，明确说明只找到 confirm（create 未标注路径）。"
+  "gold": "没有注册任何 HTTP 路由。confirm 只有一条带方法和路径的注释，create 没有路径注释。"
 }

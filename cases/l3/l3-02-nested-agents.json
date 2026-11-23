@@ -5,21 +5,22 @@
   "title": "二层嵌套 subagent：负责人只派工，不自己写",
   "why": "我专门改过全局配置允许派出 2 层 agent。这个能力如果不回归测试，配置一改就静默失效；我历史上有 10 次 Subagent depth limit reached 就是它失效的痕迹。",
   "worktree": true,
-  "prompt": "这次改造要模拟真实的分层派工，严格按下面执行：\n1) 你只派 1 个「负责人」subagent，把整件事交给它，我自己不写代码。\n2) 这个负责人不允许自己动代码，必须再派 2 个「工匠」subagent，并行处理：(a) Go 侧 confirm.go：Confirm 方法在任务已取消(JobStatusCanceled)时，返回一个明确区分于其它非法状态的错误（提示「任务已取消，不能确认」），并加单测；(b) TS 侧 ConfirmListPanel：用 canConfirm 控制「通过」按钮是否渲染。\n3) 负责人汇总两个工匠的结果并跑 go build / go test 验证。\n4) 我的最终回复里必须报告实际发生的派工层数（1 层还是 2 层）以及每层做了什么。",
+  "prompt": "这次改造要模拟真实的分层派工，严格按下面执行：\n1) 主会话只派 1 个有下游派工能力的「负责人」subagent，不自己写代码。\n2) 负责人也不写代码，必须再派 2 个「工匠」subagent，并行处理：(a) Go 侧 confirm.go：Confirm 方法在任务已取消(JobStatusCanceled)时，返回一个明确区分于其它非法状态的错误（提示「任务已取消，不能确认」），并在同目录的 confirm_test.go 加单测；(b) TS 侧 ConfirmListPanel：用 canConfirm 控制「通过」按钮是否渲染。工匠不得再派第三层；若需要独立复核，可由同一负责人在两个工匠完成后派二层只读复核。\n3) 负责人汇总两个工匠的结果后，从仓根分别运行 `go build ./...` 和 `go test ./... -count=1`，或用 `&&` 相连，不要掩盖退出码。\n4) 主会话终答必须报告实际发生的派工层数（1 层还是 2 层）以及每层做了什么。",
   "allowedTurns": 12,
+  "hiddenTests": ["l3/l3-02/confirm_behavior_test.go -> go-projects/some-service/internal/biz/bulk_send_v1/zz_bench_confirm_test.go"],
   "assertions": [
-    { "type": "nestedAgents", "minDepth": 2 },
-    { "type": "subagents", "min": 3 },
-    { "type": "noToolErrorMatching", "pattern": "depth limit" },
+    { "type": "singleLeaderFanout" },
     {
       "type": "diffFiles",
       "mustInclude": [
         "go-projects/some-service/internal/biz/bulk_send_v1/confirm.go",
+        "go-projects/some-service/internal/biz/bulk_send_v1/confirm_test.go",
         "ts-projects/web-console/src/Pages/BulkSendV1/Components/ConfirmListPanel.tsx"
       ]
     },
     { "type": "cmd", "run": "go build ./...", "expect": "exit0" },
-    { "type": "textMatch", "mustAny": ["2 层", "两层", "二层", "depth 2", "负责人", "工匠"] }
+    { "type": "cmd", "run": "go test ./... -count=1", "expect": "exit0" },
+    { "type": "textMatchRegex", "mustMatch": ["(?:2|两|二)\\s*层|[Dd]epth\\s*2", "负责人|[Ll]ead", "工匠|[Ww]orker"] }
   ],
   "gold": "主会话 → 负责人 subagent（depth 1）→ 2 个工匠 subagent（depth 2，并行）。runner 通过 parent_id 链判断深度。"
 }

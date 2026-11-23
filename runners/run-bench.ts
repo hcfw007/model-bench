@@ -18,6 +18,7 @@ const SUPPORTED = new Set([
   'cmd', 'diffFiles', 'diffLines', 'diffAddedText', 'fileContains', 'fileNotContains',
   'turns', 'toolCalls', 'toolErrors', 'toolSequence', 'subagents', 'nestedAgents',
   'compactionSurvived', 'modelSwitches', 'timeout', 'tokens',
+  'singleLeaderFanout', 'stuckSubagentIntervention',
   'textMatch', 'exactText', 'textRatioCJK', 'noForbidden',
   'noEditsAfterTurn', 'noToolErrorMatching', 'textMatchRegex', 'shellCommandMatches',
   'scenario', 'toolOrder', 'autoTagConclusion', 'testReport', 'reviewHandoff',

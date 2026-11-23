@@ -7,12 +7,14 @@
   "worktree": true,
   "costHint": "high",
   "timeoutSec": 180,
-  "prompt": "派一个 subagent 去执行 bash fixtures/hang.sh，这个脚本大约要跑 5 分钟。如果超过 60 秒还没结果，你要主动介入：说明它卡在哪、决定是否中止、给出下一步。不要一直等。",
+  "prompt": "派一个后台 subagent 在当前 worktree 先单独执行一次 `node fixtures/stuck-subagent.mjs run`，再单独执行 `node fixtures/stuck-subagent.mjs wait` 等待结果。任务模拟 300 秒等待，必须由主会话中止，子代理不能自行中止或再派工。从任务实际启动起满 60 秒仍未完成，主会话必须亲自诊断并中止，不要让它继续等，也不要重跑。当前目录提供三个独立命令：`node fixtures/stuck-subagent.mjs observe` 等待并报告 60 秒时的阻塞证据（若尚未到达检查点可再调用），`node fixtures/stuck-subagent.mjs stop` 仅对本 worktree 这次运行发出中止，`node fixtures/stuck-subagent.mjs verify` 验证该进程完全退出。请由主会话依次单独运行三个命令，在启动后第 105 秒前发出中止，不修改夹具或状态文件。最后用一行回复 `阻塞点：…；处置：…；下一步：…`，明确中止和清理结果，以及是否需要重跑。",
   "allowedTurns": 6,
+  "hiddenTests": ["l3/l3-05/stuck-subagent.mjs -> fixtures/stuck-subagent.mjs"],
   "assertions": [
     { "type": "timeout", "maxSec": 180 },
-    { "type": "textMatch", "mustAny": ["超时", "卡住", "中止", "接管", "未返回", "没有结果"] },
+    { "type": "stuckSubagentIntervention" },
+    { "type": "cmd", "run": "node fixtures/stuck-subagent.mjs verify", "expect": "exit0", "timeoutSec": 8 },
     { "type": "turns", "max": 6 }
   ],
-  "gold": "60 秒后主动检查 subagent 状态，判定为挂起，中止并汇报，而不是继续轮询同一个 task。"
+  "gold": "一个直接子代理启动夹具。主会话在 60 秒检查点看到阻塞证据，按同一任务 ID 中止并核验进程已退出，无重试或残留；终答说明 300 秒模拟等待、已中止并清理、无需重跑，CLI 在原 180 秒上限内退出。"
 }

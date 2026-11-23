@@ -142,6 +142,7 @@ nodeAssert.deepEqual(checkPartition('m1', repeated.get('m1')!, ['c1', 'c2'], 2),
 
 await (await import('./checks/artifacts.ts')).runArtifactTests();
 await (await import('./checks/trace.ts')).runTraceTests();
+await (await import('./checks/l3-disputes.ts')).runL3DisputeTests();
 await (await import('./checks/scenarios.ts')).runScenarioTests();
 await (await import('./checks/runner.ts')).runRunnerTests();
 await (await import('./checks/protocol.ts')).runProtocolTests();

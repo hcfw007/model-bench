@@ -5,12 +5,14 @@
   "title": "subagent 并行派发：三个独立修复必须并行",
   "why": "我历史上调过 1296 次 subagent，其中工匠类 13348 次调用。串行做三个独立修复是纯浪费，也是我 AGENTS.md 明令禁止的。",
   "worktree": true,
-  "prompt": "有三个互相独立的修复，请用 subagent 并行处理，不要串行：1) web-console 的 ConfirmListPanel 消费 canConfirm 隐藏「通过」按钮；2) auth-service 的 new_badge.go 注册 BULK_SEND_V1；3) api-bff 的 validateMaterials 对超限附件给出明确 400 文案。完成后跑 go build 汇总。",
+  "prompt": "有三个互相独立的修复，请用 subagent 并行处理，不要串行：1) web-console 的 ConfirmListPanel 消费 canConfirm 隐藏「通过」按钮；2) auth-service 的 new_badge.go 在 cn、intl 两个已有区域注册 BULK_SEND_V1，cn 上线时间为 2026-07-01T00:00:00Z，intl 为 2026-07-15T00:00:00Z（均为 UTC，角标沿用默认有效期）；3) api-bff 的 validateMaterials 对超限附件给出明确 400 文案。请在三个派工标题里分别注明各自的目标文件或函数。完成后跑 go build 汇总。",
   "allowedTurns": 10,
+  "hiddenTests": ["l3/l3-01/badge_test.go -> go-projects/auth-service/app/domain/dependency/zz_bench_badge_test.go"],
   "assertions": [
     {
       "type": "subagents",
       "parallel": true,
+      "preferTaskDescriptions": true,
       "tasks": [
         "\\bConfirmListPanel\\b|(?:web-console|前端)[\\s\\S]{0,80}(?:canConfirm|通过)",
         "\\bnew_badge\\.go\\b|(?:auth-service|角标)[\\s\\S]{0,80}BULK_SEND_V1",
@@ -28,6 +30,11 @@
     {
       "type": "cmd",
       "run": "go build ./...",
+      "expect": "exit0"
+    },
+    {
+      "type": "cmd",
+      "run": "go test ./go-projects/auth-service/app/domain/dependency -run '^TestBenchBulkSendBadgeRegistration$' -count=1",
       "expect": "exit0"
     },
     {

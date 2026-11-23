@@ -14,22 +14,16 @@
     "读 .tasks/bulk-send-v1/STATUS.md，只总结「已确认口径」有哪几条。",
     "再跑一次 go test ./... -count=1。",
     "总结 some-service 的目录结构。",
-    "现在原样复述最开始让你记住的三个值，一个字符都不能改。"
+    "现在只回复一行，按最初 `jobId=值, tagId=值, branch=值` 的格式原样复述，三个值一个字符都不能改。"
   ],
   "allowedTurns": 10,
   "assertions": [
-    {
-      "type": "compactionSurvived",
-      "mustRecall": [
-        "650000000000000000000001",
-        "650000000000000000000006",
-        "feat/bulk-send-v1-auto-tag"
-      ]
-    },
+    { "type": "exactText", "value": "jobId=650000000000000000000001, tagId=650000000000000000000006, branch=feat/bulk-send-v1-auto-tag" },
     {
       "type": "toolErrors",
       "name": "read",
-      "max": 2
+      "max": 2,
+      "excludePattern": "File not found: [^\\n]*/opencode-sessions/[^/\\n]+/session-vars\\.json(?:\\n|$)"
     }
   ],
   "gold": "三个值全程保真。若发生压缩，应把它们写进会话状态（session-vars 或任务档案）再引用，而不是靠记忆。"

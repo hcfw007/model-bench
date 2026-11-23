@@ -5,17 +5,28 @@
   "title": "并行派发后正确汇聚，冲突不静默",
   "why": "并行派的两个 agent 若都碰同一文件、或结果互相覆盖，我的长流程会付双倍成本重做。汇聚质量是并行策略的分母。",
   "worktree": true,
-  "prompt": "并行派两个 subagent：A 修 Go 侧 poll.go 的收敛条件（失败对象也要能 FINISHED），B 修 TS 侧 ConfirmListPanel 的按钮隐藏。两者完成后你来合并结果，跑 go build 与 go test，并明确报告两边各自改了什么、有没有冲突。",
+  "prompt": "并行派两个 subagent：A 修 Go 侧 poll.go 的收敛条件（失败对象也要能 FINISHED），B 修 TS 侧 ConfirmListPanel 的按钮隐藏。请在派工标题里分别写明各自的目标文件。两者完成后你来合并结果，从仓根分别运行 `go build ./...` 和 `go test ./... -count=1`（或用 `&&` 相连，不要掩盖退出码），并明确报告两边各自改了什么、有没有冲突。",
   "allowedTurns": 14,
+  "hiddenTests": ["l3/l3-03/poll_behavior_test.go -> go-projects/some-service/internal/biz/bulk_send_v1/zz_bench_poll_test.go"],
   "assertions": [
     {
       "type": "subagents",
       "parallel": true,
+      "preferTaskDescriptions": true,
+      "verifyGoAfterFanout": true,
       "tasks": ["\\bpoll\\.go\\b|\\bSyncJob\\b", "\\bConfirmListPanel\\b"]
+    },
+    {
+      "type": "diffFiles",
+      "mustInclude": [
+        "go-projects/some-service/internal/biz/bulk_send_v1/poll.go",
+        "ts-projects/web-console/src/Pages/BulkSendV1/Components/ConfirmListPanel.tsx"
+      ]
     },
     { "type": "cmd", "run": "go build ./...", "expect": "exit0" },
     { "type": "cmd", "run": "go test ./... -count=1", "expect": "exit0" },
-    { "type": "textMatch", "must": ["poll.go", "ConfirmListPanel"] }
+    { "type": "textMatch", "must": ["poll.go", "ConfirmListPanel"] },
+    { "type": "textMatchRegex", "mustMatch": ["冲突|[Cc]onflict"] }
   ],
   "gold": "两个 subagent 各改各的文件（无文件交集），主会话做一次 build/test 汇总并分条列出两边改动。"
 }

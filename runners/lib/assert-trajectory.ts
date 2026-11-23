@@ -1,7 +1,11 @@
+import { resolve } from 'node:path';
+
 import type { AssertCtx, AssertResult } from './assert-artifacts.ts';
 import { assertAutoTagConclusion } from './assert-auto-tag.ts';
 import { assertFanout } from './assert-fanout.ts';
-import { assertToolOrder } from './assert-tool-order.ts';
+import { assertL3Intervention } from './assert-l3-intervention.ts';
+import { assertL3Leader } from './assert-l3-leader.ts';
+import { assertToolOrder, readsTarget, toolSucceeded } from './assert-tool-order.ts';
 
 /**
  * 中文纪律判定：按「行」而不是按字符。
@@ -43,6 +47,10 @@ export function assertTrajectory(
 
   if (!t) return { type, pass: false, detail: 'no trace', missingEvidence: true };
 
+  if (type === 'singleLeaderFanout') return assertL3Leader(t);
+
+  if (type === 'stuckSubagentIntervention') return assertL3Intervention(t, ctx.answer);
+
   if (type === 'toolOrder') return assertToolOrder(a, ctx);
 
   if (type === 'autoTagConclusion') return assertAutoTagConclusion(ctx.answer, t, ctx.worktree);
@@ -67,13 +75,27 @@ export function assertTrajectory(
   }
 
   if (type === 'toolSequence') {
+    if (typeof a.readTarget === 'string') {
+      const target = a.readTarget;
+      const pattern = new RegExp(String(a.outputPattern ?? '\\S'));
+      const reads = t.toolCalls.filter((call) => call.sessionId === t.sessionId
+        && toolSucceeded(call) && readsTarget(call, ctx.worktree, target));
+      const pass = reads.some((call) => pattern.test(call.output ?? ''));
+      return {
+        type, pass, detail: `verified root read of ${target}: ${pass}`,
+        ...(!pass && reads.some((call) => call.outputCaptured === false) ? { missingEvidence: true as const } : {}),
+      };
+    }
     const names = (a.mustCallAny as string[] | undefined) ?? [];
     const called = names.some((n) => t.toolCalls.some((c) => c.name === n));
     return { type, pass: called, detail: `called=${names.filter((n) => t.toolCalls.some((c) => c.name === n)).join(',')}` };
   }
 
   if (type === 'subagents') {
-    if (Array.isArray(a.tasks) && a.parallel) return assertFanout(t, a.tasks as string[]);
+    if (Array.isArray(a.tasks) && a.parallel) return assertFanout(t, a.tasks as string[], {
+      preferDescriptions: a.preferTaskDescriptions === true,
+      verifyGoAfterFanout: a.verifyGoAfterFanout === true,
+    });
     const okCount = t.subagentCount >= Number(a.min ?? 1);
     const okParallel = a.parallel ? t.subagentsParallel : true;
     return { type, pass: okCount && okParallel, detail: `subagents=${t.subagentCount} parallel=${t.subagentsParallel}` };
@@ -94,8 +116,11 @@ export function assertTrajectory(
 
   if (type === 'shellCommandMatches') {
     const re = new RegExp(String(a.pattern), 'i');
+    const canonical = (path: string): string => path.replace(/^\/private\/var\//, '/var/');
     const hits = t.toolCalls.filter(
-      (c) => (c.name === 'shell' || c.name === 'bash') && re.test(String(c.input.command ?? '')),
+      (c) => (c.name === 'shell' || c.name === 'bash') && re.test(String(c.input.command ?? ''))
+        && (a.successful !== true || (c.sessionId === t.sessionId && c.exitCode === 0 && toolSucceeded(c)
+          && canonical(resolve(ctx.worktree, String(c.input.workdir ?? c.input.cwd ?? '.'))) === canonical(ctx.worktree))),
     );
     // orTools：直接调用这些专用工具也算命中（如 grep 工具与 shell 里的 grep 等价）
     const orTools = (a.orTools as string[] | undefined) ?? [];
