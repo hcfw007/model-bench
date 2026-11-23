@@ -4,6 +4,9 @@
 
 > **[v1.1 rankings](rankings/v1.1.md)** · [Cases and scoring protocol (Chinese)](docs/v1.1-design.md)
 >
+> **Latest results: [v1.1 reviewed single-run standings (all 15 models)](reports/V1.1-OFFLINE-REVIEW.md)** · 2026-11-23
+> Top three: GPT-6.1 Terra (100.0), GPT-6 Luna (95.7), GPT-6 Astra (91.4). One result per model per case across 33 cases; five cases were manually reviewed.
+>
 > <!-- RANKING:START -->
 > No formal v1.1 scores yet.
 > <!-- RANKING:END -->

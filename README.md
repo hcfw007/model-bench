@@ -4,6 +4,9 @@
 
 > **[v1.1 排行](rankings/v1.1.md)** · [用例与计分协议](docs/v1.1-design.md)
 >
+> **最新结果：[v1.1 单次试跑复核榜（完整 15 款）](reports/V1.1-OFFLINE-REVIEW.md)** · 2026-11-23
+> 前三：GPT-6.1 Terra（100.0）、GPT-6 Luna（95.7）、GPT-6 Astra（91.4）。每模型 33 题各取一次结果，其中 5 题经过人工复核。
+>
 > <!-- RANKING:START -->
 > 暂无 v1.1 正式成绩。
 > <!-- RANKING:END -->
