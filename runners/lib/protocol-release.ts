@@ -1,11 +1,9 @@
 import { digestOf, FORMAL_REPEAT, isRepairable, type ProtocolLock } from './protocol.ts';
-import { validateDeliveryProofs, validateResults, type RunResults } from './protocol-results.ts';
+import { validateResults, type RunResults } from './protocol-results.ts';
 import { validateLock } from './protocol-validate.ts';
 
 export const REQUIRED_MODELS = ['openai/gpt-6.1-sol', 'openai/gpt-6-astra', 'openai/gpt-6.2-sol', 'openai/gpt-6.2-astra'] as const;
 export const CALIBRATION_GROUPS = ['turns-outcomes', 'text', 'artifacts', 'order', 'parallel', 'l2-08', 'l2-07'] as const;
-export const ISOLATION_CHECKS = ['separate-authority', 'model-cannot-write-refs', 'model-cannot-write-audit',
-  'model-cannot-control-authority', 'request-audited-before-update', 'worker-local-cleanup'] as const;
 const MANDATORY_CASES = ['l1-04', 'l1-05', 'l2-07', 'l2-08', 'l3-01', 'l3-02', 'l3-08'] as const;
 const HASH = /^[a-f0-9]{64}$/;
 
@@ -21,17 +19,9 @@ export interface CalibrationReview {
   readonly replayDigest: string;
 }
 
-export interface IsolationReceipt {
-  readonly contentDigest: string;
-  readonly reviewer: string;
-  readonly platform: string;
-  readonly checks: Readonly<Record<string, true>>;
-  readonly logDigest: string;
-}
-
 export function contentDigest(lock: ProtocolLock): string {
-  const { schema, benchmarkVersion, opencodeVersion, mockRepoCommit, files, suiteDigest, weights, handoff, platform, isolation } = lock.manifest;
-  return digestOf({ schema, benchmarkVersion, opencodeVersion, mockRepoCommit, files, suiteDigest, weights, handoff, platform, isolation });
+  const { schema, benchmarkVersion, opencodeVersion, mockRepoCommit, files, suiteDigest, weights, handoff, platform } = lock.manifest;
+  return digestOf({ schema, benchmarkVersion, opencodeVersion, mockRepoCommit, files, suiteDigest, weights, handoff, platform });
 }
 
 export function calibrationTrialCases(lock: ProtocolLock): string[] {
@@ -57,14 +47,14 @@ export function verifyCalibrationTrial(formalLock: ProtocolLock, trial: RunResul
     throw new Error('试跑缺少两代 Sol/Astra 或非 OpenAI Flash（均需 high）');
   }
   if (trial.results.some(({ outcome }) => isRepairable(outcome))) throw new Error('试跑存在未解决的证据或运行故障');
-  validateDeliveryProofs(trial);
 }
 
 export function verifyReceipts(
-  lock: ProtocolLock, calibration: CalibrationReceipt, review: CalibrationReview, isolation: IsolationReceipt,
+  lock: ProtocolLock, calibration: CalibrationReceipt, review: CalibrationReview,
 ): void {
+  validateLock(lock);
   const target = contentDigest(lock);
-  if (![calibration, review, isolation].every((receipt) => receipt?.contentDigest === target)) throw new Error('验收凭证与冻结内容摘要不符');
+  if (![calibration, review].every((receipt) => receipt?.contentDigest === target)) throw new Error('验收凭证与冻结内容摘要不符');
   const expectedCommands = ['runners/selftest.ts', 'runners/run-bench.ts --dry-run --mode formal'];
   if (!Array.isArray(calibration.commands) || calibration.commands.length !== expectedCommands.length
     || !expectedCommands.every((command, index) => calibration.commands[index].command === command
@@ -76,7 +66,4 @@ export function verifyReceipts(
     return counts && Number.isSafeInteger(counts.positive) && counts.positive >= 1
       && Number.isSafeInteger(counts.negative) && counts.negative >= 2;
   })) throw new Error('离线正反例或历史回放复核凭证不足');
-  if (!isolation.reviewer?.trim() || isolation.platform !== lock.manifest.platform || !HASH.test(isolation.logDigest)
-    || !ISOLATION_CHECKS.every((check) => isolation.checks?.[check] === true)) throw new Error('交付隔离验收凭证不足');
-  if (!lock.manifest.isolation || !lock.preflight?.length) throw new Error('发布所需的 Linux 隔离后端未验证');
 }

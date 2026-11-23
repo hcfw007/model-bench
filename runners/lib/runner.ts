@@ -9,7 +9,6 @@ import { assertTrajectory } from './assert-trajectory.ts';
 import type { BenchConfig } from './config.ts';
 import { snapshotTree } from './net-diff.ts';
 import { assertScenario, startScenario } from './scenarios.ts';
-import { runDeliveryTurns, type DeliveryAdapter } from './turn-run-adapter.ts';
 import { prepareWorkspace, restoreHiddenTests, type HiddenTest } from './turn-run-fixtures.ts';
 import { assertContext, runTurns, type RunEvidence } from './turn-run-loop.ts';
 import { errorMessage } from './turn-run-process.ts';
@@ -42,14 +41,11 @@ export interface RunOpts {
   modelId: string;
   modelRef: string;
   idx: number;
-  formal?: boolean;
-  deliveryAdapter?: DeliveryAdapter;
 }
 
-export function requireSafeExecution(caseId: string, isolationRequired: boolean, adapter?: DeliveryAdapter): void {
-  if (process.getuid?.() === 0 || process.geteuid?.() === 0
-    || (caseId === 'l2-07' && isolationRequired && !adapter)) {
-    throw new Error('Refusing to launch models without a safe execution identity');
+export function requireSafeExecution(): void {
+  if (process.getuid?.() === 0 || process.geteuid?.() === 0) {
+    throw new Error('Refusing to launch models as root');
   }
 }
 
@@ -111,37 +107,25 @@ export function runCase(opts: RunOpts): CaseResult {
   }
 
   try {
-    requireSafeExecution(caseDef.id, opts.formal === true, opts.deliveryAdapter);
+    requireSafeExecution();
     const title = `bench ${caseDef.id} ${modelId} r${idx} ${randomUUID()}`;
-    if (opts.deliveryAdapter) {
-      if (caseDef.id !== 'l2-07' || opts.deliveryAdapter.modelId !== modelId
-        || caseDef.setup || caseDef.hiddenTests?.length || caseDef.switchModelAfterTurn !== undefined
-        || caseDef.assertions.some(({ type }) => type !== 'scenario')) {
-        throw new Error('Invalid isolated delivery slot');
-      }
-      const delivery = opts.deliveryAdapter.openDelivery();
-      cleanup.push(() => delivery.close());
-      runDeliveryTurns(opts, delivery, title, startedAt, evidence);
-      if (!evidence.interruption) evaluateCase(opts, '', startedAt, [], true, evidence);
-    } else {
-      const scratch = mkdtempSync(join(tmpdir(), 'model-bench-turn-'));
-      cleanup.push(() => rmSync(scratch, { recursive: true, force: true }));
-      const hasScenario = caseDef.id === 'l2-07' || caseDef.id === 'l2-08';
-      const needsWorktree = hasScenario || Boolean(caseDef.setup || caseDef.hiddenTests?.length);
-      const workspace = openWorkspace(cfg, needsWorktree || caseDef.worktree !== false);
-      cleanup.push(() => workspace.close());
-      const cwd = realpathSync(workspace.cwd);
-      const hidden = prepareWorkspace(cwd, casesRoot, caseDef);
-      const scenario = hasScenario ? startScenario(caseDef.id, cwd) : undefined;
-      if (scenario) cleanup.push(() => scenario.close());
-      const excludes = hidden.map(({ path }) => path);
-      const baseline = snapshotTree(cwd, excludes);
-      const db = new DatabaseSync(cfg.bench.dbPath, { readOnly: true });
-      cleanup.push(() => db.close());
-      db.exec('pragma busy_timeout = 2000');
-      runTurns(opts, { db, cwd, baseline, hidden, excludes, title, scenario }, scratch, startedAt, evidence);
-      if (!evidence.interruption) evaluateCase(opts, cwd, startedAt, hidden, hasScenario, evidence);
-    }
+    const scratch = mkdtempSync(join(tmpdir(), 'model-bench-turn-'));
+    cleanup.push(() => rmSync(scratch, { recursive: true, force: true }));
+    const hasScenario = caseDef.id === 'l2-07' || caseDef.id === 'l2-08';
+    const needsWorktree = hasScenario || Boolean(caseDef.setup || caseDef.hiddenTests?.length);
+    const workspace = openWorkspace(cfg, needsWorktree || caseDef.worktree !== false);
+    cleanup.push(() => workspace.close());
+    const cwd = realpathSync(workspace.cwd);
+    const hidden = prepareWorkspace(cwd, casesRoot, caseDef);
+    const scenario = hasScenario ? startScenario(caseDef.id, cwd) : undefined;
+    if (scenario) cleanup.push(() => scenario.close());
+    const excludes = hidden.map(({ path }) => path);
+    const baseline = snapshotTree(cwd, excludes);
+    const db = new DatabaseSync(cfg.bench.dbPath, { readOnly: true });
+    cleanup.push(() => db.close());
+    db.exec('pragma busy_timeout = 2000');
+    runTurns(opts, { db, cwd, baseline, hidden, excludes, title, scenario }, scratch, startedAt, evidence);
+    if (!evidence.interruption) evaluateCase(opts, cwd, startedAt, hidden, hasScenario, evidence);
   } catch (error: unknown) {
     recordError('runner', error);
   } finally {

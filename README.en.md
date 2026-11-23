@@ -162,7 +162,7 @@ across runs only at the same concurrency.
 
 Results land in `reports/<timestamp>/leaderboard.md` and `failures.md`.
 
-Formal execution requires a non-root Linux host with a verified rootless Podman deployment. See the [release guide](docs/v1.1-release-ops.md). Ordinary trials are not eligible for publication.
+Formal runs and trials both run locally on macOS or Linux as an ordinary user. The delivery case uses a local simulator. See the [release guide](docs/v1.1-release-ops.md) for publication requirements.
 
 [`reports/COVERAGE.md`](reports/COVERAGE.md) records historical v1.0 runs, not v1.1 validation.
 

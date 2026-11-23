@@ -6,16 +6,14 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
 import type { BenchConfig } from '../lib/config.ts';
-import type { ProtocolLock } from '../lib/protocol.ts';
 import { runCase, type CaseDef } from '../lib/runner.ts';
 import { runSerialModels } from '../lib/run-serial.ts';
-import { readContainerTrace } from '../lib/turn-run-podman-trace.ts';
 
 const OUTCOMES = {
   success: 'pass', missing: 'missing_evidence', timeout: 'timeout', violation: 'violation',
   'cli-error': 'error', 'hidden-tamper': 'assert_fail', 'no-answer': 'missing_evidence',
   'empty-final': 'pass', 'missing-assertion': 'missing_evidence',
-  'delivery-revert': 'assert_fail', 'delivery-missing-cut': 'missing_evidence',
+  'delivery-success': 'pass', 'delivery-revert': 'assert_fail', 'delivery-missing-cut': 'missing_evidence',
 } as const;
 
 const SCRIPT = String.raw`
@@ -30,10 +28,13 @@ assert.deepEqual(args.slice(0, 3), ['run', '--auto', '--standalone']);
 assert.equal(process.env.PWD, process.cwd());
 const prompt = args.at(-1);
 const resume = args.includes('--session');
+const delivery = prompt.startsWith('delivery-');
 const root = resume ? value('--session') : 'ses_' + randomUUID();
-assert.equal(value('-m'), resume ? 'fixture/alternate#high' : 'fixture/main#high');
-assert.equal(readFileSync('seed.txt', 'utf8'), 'seed+append');
-assert.equal(readFileSync('hidden.txt', 'utf8'), 'trusted');
+assert.equal(value('-m'), resume && !delivery ? 'fixture/alternate#high' : 'fixture/main#high');
+if (!delivery) {
+  assert.equal(readFileSync('seed.txt', 'utf8'), 'seed+append');
+  assert.equal(readFileSync('hidden.txt', 'utf8'), 'trusted');
+}
 if (!resume && prompt === 'missing') {
   console.log('turn two');
   process.exit(0);
@@ -43,7 +44,7 @@ if (!resume) {
   const now = Date.now();
   db.prepare('insert into session_v2 values (?, ?, null, ?, ?, 0, 0)').run(root, value('--title'), now, now);
 } else {
-  assert.equal(prompt, 'follow-up');
+  assert.equal(prompt, delivery ? 'delivery-follow-up' : 'follow-up');
 }
 const insert = db.prepare('insert into session_message values (?, ?, ?, ?, ?, ?)');
 const index = resume ? 4 : 1;
@@ -60,14 +61,16 @@ if (firstCase === 'missing-assertion' && resume) {
   const read = { type: 'tool', name: 'read', state: {status:'completed', input:{filePath:'seed.txt'}} };
   insert.run(root, index + 1, 'assistant', JSON.stringify({ content: [read] }), now + 1, now + 1);
 }
-if (firstCase === 'delivery-revert') {
+if (firstCase === 'delivery-success' || firstCase === 'delivery-revert') {
   const endpoint = startPrompt.match(/http:\/\/127\.0\.0\.1:\d+\/[\da-f-]+/)[0];
   if (!resume) assert.equal((await fetch(endpoint + '/repo/C/status')).status, 200);
   const target = resume ? 'B' : 'A';
   assert.equal((await fetch(endpoint + '/repo/' + target + '/merge', { method: 'POST' })).status, 200);
   content[0].text = JSON.stringify({ A: 'merged', B: resume ? 'merged' : 'pending_approval', C: 'already_merged' });
-  if (resume) rmSync('transient.txt');
-  else writeFileSync('transient.txt', 'must be detected\n');
+  if (firstCase === 'delivery-revert') {
+    if (resume) rmSync('transient.txt');
+    else writeFileSync('transient.txt', 'must be detected\n');
+  }
 }
 if (firstCase === 'no-answer') {
   insert.run(root, index + 1, 'assistant', JSON.stringify({ content }), now + 1, now + 1);
@@ -78,7 +81,7 @@ if (firstCase === 'no-answer') {
 db.close();
 if (resume) {
   if (firstCase === 'hidden-tamper') rmSync('hidden.txt');
-  if (firstCase !== 'delivery-revert') writeFileSync('result.txt', 'result\n');
+  if (!delivery) writeFileSync('result.txt', 'result\n');
 }
 if (prompt === 'cli-error') process.exit(7);
 if (prompt === 'timeout' || prompt === 'violation') setInterval(() => {}, 100);
@@ -124,10 +127,11 @@ function testRun(prompt: keyof typeof OUTCOMES): void {
     const delivery = prompt.startsWith('delivery-');
     const caseDef: CaseDef = {
       id: delivery ? 'l2-07' : 'fixture-test', layer: 'l0', title: prompt, prompt,
-      followUps: prompt === 'delivery-missing-cut' ? [] : ['follow-up'], switchModelAfterTurn: 1,
+      followUps: prompt === 'delivery-missing-cut' ? [] : [delivery ? 'delivery-follow-up' : 'follow-up'],
+      switchModelAfterTurn: delivery ? undefined : 1,
       timeoutSec: prompt === 'timeout' || prompt === 'violation' ? 1 : undefined, allowedTurns: 2,
-      setup: { files: { 'seed.txt': 'seed' }, append: { 'seed.txt': '+append' } },
-      hiddenTests: ['gold.txt -> hidden.txt'],
+      setup: delivery ? undefined : { files: { 'seed.txt': 'seed' }, append: { 'seed.txt': '+append' } },
+      hiddenTests: delivery ? undefined : ['gold.txt -> hidden.txt'],
       assertions: delivery ? [{ type: 'scenario' }] : prompt === 'missing-assertion'
         ? [{ type: 'toolOrder', before: 'read', readTarget: 'seed.txt', searchTargets: ['seed.txt'] }]
         : [
@@ -148,75 +152,27 @@ function testRun(prompt: keyof typeof OUTCOMES): void {
       assert.deepEqual(result.checkpoints.map((checkpoint) => checkpoint.answer),
         [prompt === 'empty-final' ? '' : 'turn one', 'turn two']);
       assert.deepEqual(result.checkpoints[1]?.netDiff?.files, ['result.txt']);
-    } else if (prompt !== 'delivery-revert') {
+    } else if (prompt !== 'delivery-revert' && prompt !== 'delivery-success') {
       assert.equal(result.checkpoints.length, 1);
       assert.equal(result.assertions.some(({ type }) => type === 'exactText'), false);
     }
     if (prompt === 'no-answer') assert.equal(result.checkpoints[0]?.finalObserved, false);
     if (prompt === 'missing-assertion') assert.equal(result.assertions.find(({ type }) => type === 'toolOrder')?.missingEvidence, true);
     if (prompt === 'delivery-missing-cut') assert.equal(result.assertions.find(({ type }) => type === 'scenario')?.missingEvidence, true);
-    if (prompt === 'delivery-revert') {
-      assert.deepEqual(result.checkpoints.map(({ netDiff }) => netDiff?.files), [['transient.txt'], []]);
+    if (prompt === 'delivery-success' || prompt === 'delivery-revert') {
+      assert.ok(result.sessionId);
+      assert.ok(result.checkpoints.every(({ sessionId, finalObserved }) => sessionId === result.sessionId && finalObserved));
+      assert.deepEqual(result.checkpoints.map(({ netDiff }) => netDiff?.files),
+        [prompt === 'delivery-revert' ? ['transient.txt'] : [], []]);
       assert.equal(result.assertions.find(({ type }) => type === 'scenario')?.pass, true);
-      assert.equal(result.assertions.find(({ type }) => type === 'scenarioWorktreeClean')?.pass, false);
-      const opts = { cfg, casesRoot, caseDef, modelId: 'fixture/main', modelRef: 'fixture/main#high', idx: 3 };
-      const formal = runCase({ ...opts, formal: true });
-      assert.equal(formal.outcome, 'error');
-      assert.match(formal.error ?? '', /safe execution identity/);
-      assert.deepEqual(formal.checkpoints, []);
-      testIsolationSelection(cfg, casesRoot, caseDef, root);
+      assert.equal(result.assertions.find(({ type }) => type === 'scenarioWorktreeClean')?.pass, prompt === 'delivery-success');
     }
-    if (prompt === 'success') testSerial(cfg, casesRoot, caseDef, join(root, 'serial'));
+    if (prompt === 'success' || prompt === 'delivery-success') testSerial(cfg, casesRoot, caseDef, join(root, 'serial'));
     if (prompt === 'missing') assert.equal(result.answer, '');
     if (prompt === 'timeout' || prompt === 'violation') assert.equal(result.checkpoints[0]?.process.status, 'timeout');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
-}
-
-function testIsolationSelection(cfg: BenchConfig, casesRoot: string, caseDef: CaseDef, root: string): void {
-  const model = { id: 'fixture/main', model: 'fixture/main', variant: 'high' };
-  const hash = 'a'.repeat(64);
-  const lock: ProtocolLock = {
-    manifest: {
-      schema: 1, benchmarkVersion: 'test', mode: 'trial', concurrency: 1, repeat: 1,
-      opencodeVersion: '1.0.0', mockRepoCommit: hash, platform: 'linux/x64', files: {}, suiteDigest: hash,
-      weights: {}, cases: [{ id: caseDef.id, layer: caseDef.layer, weight: 1, timeoutSec: 2 }],
-      isolation: {
-        backend: 'rootless-podman-v1', isolationId: hash, image: `example.invalid/test@sha256:${hash}`,
-        imageId: `sha256:${hash}`, program: '/opt/opencode', programVersion: '1.0.0', podmanVersion: '5.6.0',
-      },
-    },
-    digest: hash, models: [model], runId: 'fixture-run',
-  };
-  const outDir = join(root, 'isolation-selection');
-  const isolatedCase: CaseDef = { ...caseDef, setup: undefined, hiddenTests: undefined, switchModelAfterTurn: undefined };
-  const options = { cfg, casesRoot, cases: [isolatedCase], specs: [model], repeat: 1, outDir };
-  let opened = false;
-  let closed = false;
-  const adapter = {
-    modelId: model.id, backend: 'rootless-podman-v1', isolationId: hash,
-    openDelivery() {
-      opened = true;
-      return {
-        promptSuffix: '',
-        runTurn: () => { throw new Error('mock isolated runtime unavailable'); },
-        close: () => { closed = true; },
-      };
-    },
-  };
-  assert.throws(() => runSerialModels({ ...options, workerLock: lock }), /safe execution identity/);
-  assert.throws(() => runSerialModels({ ...options, deliveryAdapter: adapter }), /frozen|verified worker protocol lock/);
-  assert.throws(() => runSerialModels({
-    ...options, workerLock: lock, deliveryAdapter: { ...adapter, isolationId: 'other' },
-  }), /verified worker protocol lock/);
-  assert.equal(existsSync(outDir), false);
-  assert.equal(opened, false);
-  const [result] = runSerialModels({ ...options, workerLock: lock, deliveryAdapter: adapter });
-  assert.equal(result.outcome, 'error');
-  assert.deepEqual(result.checkpoints, []);
-  assert.match(result.error ?? '', /mock isolated runtime unavailable/);
-  assert.equal(opened && closed, true);
 }
 
 function testSerial(cfg: BenchConfig, casesRoot: string, caseDef: CaseDef, outDir: string): void {
@@ -244,15 +200,4 @@ function testSerial(cfg: BenchConfig, casesRoot: string, caseDef: CaseDef, outDi
 
 export function runRunnerTests(): void {
   for (const prompt of Object.keys(OUTCOMES) as Array<keyof typeof OUTCOMES>) testRun(prompt);
-  const root = 'ses_fixture';
-  const sessions = [{ id: root, title: 'fixture', parent_id: null, time_created: 1, time_updated: 2, tokens_input: 1, tokens_output: 2 }];
-  const rows = [
-    { session_id: root, seq: 1, type: 'user', data: '{}', time_created: 1, time_updated: 1 },
-    { session_id: root, seq: 2, type: 'assistant', time_created: 2, time_updated: 2,
-      data: JSON.stringify({ content: [{ type: 'text', text: 'fixture' }], finish: 'stop', time: { completed: 2 } }) },
-  ];
-  const trace = readContainerTrace(JSON.stringify({ root, sessions, rows }));
-  assert.equal(trace?.sessionId, root);
-  assert.deepEqual(trace?.answersByTurn, ['fixture']);
-  assert.deepEqual(trace?.finalObservedByTurn, [true]);
 }

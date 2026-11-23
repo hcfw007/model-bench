@@ -4,10 +4,9 @@ import { existsSync, lstatSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { loadConfig, resolveModelRef, type ModelSpec } from './config.ts';
-import { CALIBRATION_TYPES, digestOf, sha256, type BenchMode, type IsolationDeployment, type ModelIdentity, type ProtocolCase, type ProtocolLock, type RepairPlan } from './protocol.ts';
+import { CALIBRATION_TYPES, digestOf, PROTOCOL_SCHEMA, sha256, type BenchMode, type ModelIdentity, type ProtocolCase, type ProtocolLock, type RepairPlan } from './protocol.ts';
 import { validateLock } from './protocol-validate.ts';
 import { loadCases, type CaseDef } from './runner.ts';
-import type { IsolationProof } from './scenario-isolation.ts';
 
 export const WORKER_ENTRIES = ['runners', 'cases', 'fixtures', 'judges', 'package.json'];
 const LOCKED_ENTRIES = ['bench.config.jsonc', ...WORKER_ENTRIES];
@@ -49,10 +48,8 @@ export function freezeProtocol(opts: {
   models: ModelIdentity[];
   repair?: RepairPlan;
   normalizedConfig?: string;
-  preflight?: readonly IsolationProof[];
-  isolation?: IsolationDeployment;
 }): ProtocolLock {
-  const { root, mode, repeat, concurrency, layers, only, models, repair, mockRepoCommit, preflight } = opts;
+  const { root, mode, repeat, concurrency, layers, only, models, repair, mockRepoCommit } = opts;
   const config = loadConfig(join(root, 'bench.config.jsonc'));
   const describe = (caseDef: CaseDef): ProtocolCase => ({
     id: caseDef.id,
@@ -64,17 +61,16 @@ export function freezeProtocol(opts: {
   const cases = loadCases(join(root, 'cases'), layers, only).map(describe);
   const suite = loadCases(join(root, 'cases'), Object.keys(config.layers).filter((layer) => config.layers[layer]), []).map(describe);
   const manifest = {
-    schema: 1, benchmarkVersion: config.bench.version, mode, concurrency, repeat,
+    schema: PROTOCOL_SCHEMA, benchmarkVersion: config.bench.version, mode, concurrency, repeat,
     mockRepoCommit, cases, suiteDigest: digestOf(suite), files: fileHashes(root, opts.normalizedConfig), weights: config.weights,
     platform: `${process.platform}/${process.arch}`,
-    ...(opts.isolation ? { isolation: opts.isolation } : {}),
     opencodeVersion: opencodeVersion(config.bench.opencodeBin),
     ...(config.run.switchModel && config.run.switchFallback
       ? { handoff: { primary: config.run.switchModel, fallback: config.run.switchFallback } }
       : {}),
   } as const;
   const lock: ProtocolLock = { manifest, digest: digestOf(manifest), models, runId: randomUUID(),
-    ...(preflight ? { preflight } : {}), ...(repair ? { repair } : {}) };
+    ...(repair ? { repair } : {}) };
   validateLock(lock);
   return lock;
 }

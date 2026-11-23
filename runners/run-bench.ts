@@ -13,8 +13,6 @@ import { makeRepairPlan, type RunResults } from './lib/protocol-results.ts';
 import { validateFormal } from './lib/protocol-validate.ts';
 import { assertMockRepoClean, mockRepoHead, mockRepoMain, normalizeWorkerConfig } from './lib/worker.ts';
 import { contentDigest } from './lib/protocol-release.ts';
-import { preflightMatches, runIsolationPreflight } from './lib/protocol-isolation.ts';
-import { bindPodmanDelivery } from './lib/turn-run-podman.ts';
 
 const SUPPORTED = new Set([
   'cmd', 'diffFiles', 'diffLines', 'diffAddedText', 'fileContains', 'fileNotContains',
@@ -27,7 +25,7 @@ const SUPPORTED = new Set([
 
 const args = process.argv.slice(2);
 const booleanFlags = new Set(['--dry-run', '--lock-only']);
-const valueFlags = new Set(['--mode', '--repair', '--layers', '--cases', '--models', '--repeat', '--concurrency', '--out', '--isolation-config']);
+const valueFlags = new Set(['--mode', '--repair', '--layers', '--cases', '--models', '--repeat', '--concurrency', '--out']);
 const usedFlags = new Set<string>();
 for (let index = 0; index < args.length; index += 1) {
   const flag = args[index];
@@ -54,26 +52,14 @@ const configPath = resolve(root, 'bench.config.jsonc');
 const cfg = loadConfig(configPath);
 const casesRoot = resolve(root, 'cases');
 const isWorker = process.env.OPENCODE_BENCH_WORKER === '1';
-const isolationPath = arg('isolation-config', '');
 
 function runWorker(): void {
   if (process.getuid?.() === 0 || process.geteuid?.() === 0) throw new Error('worker 不允许以 root 执行');
   const lock = JSON.parse(readFileSync(resolve(root, 'protocol.lock.json'), 'utf8')) as ProtocolLock;
-  if (Boolean(lock.manifest.isolation) !== Boolean(isolationPath)) throw new Error('worker 隔离选项与协议锁不一致');
   verifyWorkerInputs(root, cfg.bench.opencodeBin, lock);
   if (lock.manifest.mockRepoCommit !== mockRepoHead(cfg.bench.mockRepo)) throw new Error('worker 测试床提交不符');
   const model = lock.models.find(({ id }) => id === arg('models', ''));
   if (!model) throw new Error('worker 未选中锁定模型');
-  const isolated = isolationPath ? runIsolationPreflight(isolationPath, [model.id]) : undefined;
-  if (isolated) {
-    const expected = lock.preflight?.find(({ modelId }) => modelId === model.id);
-    if (!expected || isolated.preflight[0].containerId === expected.containerId || !preflightMatches(expected, isolated.preflight[0])
-      || digestOf(isolated.deployment) !== digestOf(lock.manifest.isolation)) {
-      throw new Error('worker 隔离预检或镜像运行时与协议锁不一致');
-    }
-  }
-  const isolationConfig = isolated?.configs.get(model.id);
-  if (isolated && !isolationConfig) throw new Error('worker 隔离预检未返回对应模型配置');
   const layers = [...new Set(lock.manifest.cases.map(({ layer }) => layer))];
   const available = new Map(loadCases(casesRoot, layers, []).map((caseDef) => [caseDef.id, caseDef]));
   const cases = lock.manifest.cases.map(({ id }) => {
@@ -85,8 +71,6 @@ function runWorker(): void {
     cfg, casesRoot, cases, specs: [model], repeat: lock.manifest.repeat,
     slots: expectedSlots(lock).filter(({ modelId }) => modelId === model.id),
     outDir: resolve(root, arg('out', 'out')),
-    workerLock: lock,
-    ...(isolationConfig ? { deliveryAdapter: bindPodmanDelivery(lock, isolationConfig) } : {}),
   });
 }
 
@@ -170,7 +154,6 @@ if (dryRun) {
   process.exit(bad === 0 ? 0 : 1);
 }
 
-if (mode === 'formal' && !isolationPath) throw new Error('正式执行及 --lock-only 必须指定 --isolation-config');
 if (process.getuid?.() === 0 || process.geteuid?.() === 0) throw new Error('run-bench 不允许以 root 执行');
 
 const stamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -178,12 +161,10 @@ const outDir = resolve(root, arg('out', `reports/${mode}/${stamp}`));
 if (existsSync(resolve(outDir, 'results.json')) || existsSync(resolve(outDir, 'protocol.lock.json'))) throw new Error('输出目录已有运行记录');
 
 function writeLocalLock(): ProtocolLock {
-  const isolated = isolationPath ? runIsolationPreflight(isolationPath, specs.map(({ id }) => id)) : undefined;
   assertMockRepoClean(cfg.bench.mockRepo);
   const lock = freezeProtocol({
     root, mockRepoCommit: mockRepoMain(cfg.bench.mockRepo), mode, concurrency, repeat, layers, only,
-    models: resolveIdentities(specs), normalizedConfig: normalizeWorkerConfig(configPath), preflight: isolated?.preflight,
-    isolation: isolated?.deployment,
+    models: resolveIdentities(specs), normalizedConfig: normalizeWorkerConfig(configPath),
   });
   mkdirSync(outDir, { recursive: true });
   writeFileSync(resolve(outDir, 'protocol.lock.json'), `${JSON.stringify(lock, null, 2)}\n`, { flag: 'wx' });
@@ -200,7 +181,7 @@ if (args.includes('--lock-only')) {
 function runSerialTrial(): RunResults {
   const protocol = writeLocalLock();
   const startedAt = new Date();
-  const results = runSerialModels({ cfg, casesRoot, cases, specs: [...protocol.models], repeat, outDir, workerLock: protocol });
+  const results = runSerialModels({ cfg, casesRoot, cases, specs: [...protocol.models], repeat, outDir });
   const finishedAt = new Date();
   verifyWorkerInputs(root, cfg.bench.opencodeBin, protocol, normalizeWorkerConfig(configPath));
   if (mockRepoMain(cfg.bench.mockRepo) !== protocol.manifest.mockRepoCommit) throw new Error('串行测试床提交在试跑期间变化');
@@ -213,9 +194,9 @@ function runSerialTrial(): RunResults {
 }
 
 console.log(`${mode}｜并发 ${concurrency}｜模型 ${specs.length} 个｜${repair?.slots.length ?? specs.length * cases.length * repeat} 个用例槽位`);
-const outcome = concurrency === 1 && !isolationPath ? runSerialTrial() : { config: cfg, ...await runParallelModels({
+const outcome = concurrency === 1 ? runSerialTrial() : { config: cfg, ...await runParallelModels({
   cfg, configPath, repoRoot: root, cases, specs, repeat, concurrency, layers, only, outDir, mode,
-  repair, expectedDigest: base?.protocol.digest, expectedPreflight: base?.protocol.preflight, isolationConfigPath: isolationPath || undefined,
+  repair, expectedDigest: base?.protocol.digest,
 }) };
 const { scores, excluded } = writeFinalReports(outDir, outcome);
 if (outcome.meta.workers.some(({ status }) => status !== 'complete')

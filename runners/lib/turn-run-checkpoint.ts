@@ -25,14 +25,13 @@ interface CaptureOptions {
   readonly process: TurnProcess;
 }
 
-export interface CapturedTurn {
+interface CapturedTurn {
   readonly checkpoint: TurnCheckpoint;
   readonly trace: Trace | null;
   readonly missingEvidence?: string;
-  readonly missingIsolationEvidence?: string;
 }
 
-export function missingTurnEvidence(trace: Trace | null, turn: number): string | undefined {
+function missingTurnEvidence(trace: Trace | null, turn: number): string | undefined {
   return !trace || trace.turns < turn ? `missing root session or user turn ${turn}`
     : trace.incompleteSessions?.length ? `incomplete trace for sessions: ${trace.incompleteSessions.join(', ')}`
     : trace.finalObservedByTurn?.[turn - 1] !== true ? `missing terminal assistant event in turn ${turn}` : undefined;

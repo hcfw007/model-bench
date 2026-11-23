@@ -140,7 +140,7 @@ node runners/run-bench.ts --mode formal --dry-run --models openai/gpt-6.2-sol,op
 
 输出 `reports/<timestamp>/leaderboard.md` 与 `failures.md`。
 
-正式运行须先在已部署 rootless Podman 的非 root Linux 宿主通过隔离预检；完整操作见[发布指南](docs/v1.1-release-ops.md)。普通 trial 不能入榜。
+正式运行和试跑均可在当前 Mac 或 Linux 上以普通用户执行。三仓交付用例使用本地模拟服务；正式入榜条件见[发布指南](docs/v1.1-release-ops.md)。
 
 旧版实测覆盖记录见 [`reports/COVERAGE.md`](reports/COVERAGE.md)，不可用作 v1.1 的实测记录。
 

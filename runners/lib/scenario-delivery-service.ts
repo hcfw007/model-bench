@@ -73,7 +73,6 @@ function canMerge(repo: RepoName, turn: number): boolean {
 }
 
 function serveDelivery(): void {
-  const socket = process.argv[2];
   const repositories = { A: createRepository('A'), B: createRepository('B'), C: createRepository('C') };
   const instancePath = `/${randomUUID()}/`;
   let turn = 1;
@@ -134,15 +133,12 @@ function serveDelivery(): void {
     server.closeAllConnections();
     process.stdin.destroy();
   });
-  const ready = (): void => {
+  server.listen(0, '127.0.0.1', (): void => {
     const endpoint = server.address();
-    if (!endpoint) throw new Error('missing delivery endpoint');
-    const url = typeof endpoint === 'string'
-      ? `http://localhost${instancePath.slice(0, -1)}` : `http://127.0.0.1:${endpoint.port}${instancePath.slice(0, -1)}`;
+    if (!endpoint || typeof endpoint === 'string') throw new Error('missing delivery endpoint');
+    const url = `http://127.0.0.1:${endpoint.port}${instancePath.slice(0, -1)}`;
     process.stdout.write(`${JSON.stringify(url)}\n`);
-  };
-  if (socket) server.listen(socket, ready);
-  else server.listen(0, '127.0.0.1', ready);
+  });
 }
 
 if (import.meta.main) serveDelivery();

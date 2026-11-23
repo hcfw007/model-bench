@@ -24,15 +24,15 @@ model-bench 的历史跑分记录。每个版本对应一组固定的用例与�
 
 ## 新增模型的步骤
 
-先按[发布验收指南](../docs/v1.1-release-ops.md)准备隔离配置与同协议验收目录。
+先按[发布验收指南](../docs/v1.1-release-ops.md)准备同协议验收目录。
 
 ```bash
 # 1. 在 bench.config.jsonc 的 models 里加一条
 # 2. 选择本次要发布的所有模型，一次正式运行生成完整榜单
-node runners/run-bench.ts --mode formal --models <模型A>,<模型B> --out reports/<主运行> --isolation-config /path/to/backend.json
+node runners/run-bench.ts --mode formal --models <模型A>,<模型B> --out reports/<主运行>
 
 # 3. 仅当主运行有可修复的采集/服务故障时，按同一协议补槽并保留原记录
-node runners/run-bench.ts --mode formal --repair reports/<主运行> --out reports/<补槽> --isolation-config /path/to/backend.json
+node runners/run-bench.ts --mode formal --repair reports/<主运行> --out reports/<补槽>
 node runners/merge-results.ts reports/<主运行> reports/<补槽>
 
 # 4. 重新渲染完整报告

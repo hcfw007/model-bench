@@ -39,9 +39,6 @@ export function renderRunReport(data: RunResults): string {
     `# v${manifest.benchmarkVersion} ${manifest.mode}${repair ? ' · 补槽' : ''}`,
     `\n协议摘要：\`${digest}\` · 运行：\`${runId}\``,
     `\nOpenCode ${manifest.opencodeVersion} · 测试床 \`${manifest.mockRepoCommit}\` · ${manifest.cases.length} 题 · 重复 ${manifest.repeat} · 并发 ${manifest.concurrency}`,
-    `\n交付隔离：${manifest.isolation
-      ? `\`${manifest.isolation.backend}\` ${manifest.isolation.podmanVersion} · \`${manifest.isolation.image}\` · \`${manifest.isolation.program}\` ${manifest.isolation.programVersion}`
-      : '未验证'}`,
     `\n模型与档位：${models.map(({ id, model, variant }) => `\`${id}=${model}${variant ? `#${variant}` : ''}\``).join('、')}`,
     ...excluded.map(({ modelId, reason }) => `- 未入排行：\`${modelId}\` ${reason}`),
     `\n\`\`\`\n${leaderboard(scores)}\n\`\`\``,

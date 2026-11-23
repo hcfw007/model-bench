@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
 
 import type { CaseOutcome, CaseResult } from './score.ts';
-import type { IsolationProof } from './scenario-isolation.ts';
+
+export const PROTOCOL_SCHEMA = 2;
 
 export type BenchMode = 'trial' | 'formal';
 export type LayerId = 'l0' | 'l1' | 'l2' | 'l3';
@@ -25,18 +26,8 @@ export interface ModelIdentity {
   readonly variant?: string;
 }
 
-export interface IsolationDeployment {
-  readonly backend: 'rootless-podman-v1';
-  readonly isolationId: string;
-  readonly image: string;
-  readonly imageId: string;
-  readonly program: string;
-  readonly programVersion: string;
-  readonly podmanVersion: string;
-}
-
 export interface ProtocolManifest {
-  readonly schema: 1;
+  readonly schema: typeof PROTOCOL_SCHEMA;
   readonly benchmarkVersion: string;
   readonly mode: BenchMode;
   readonly concurrency: number;
@@ -44,7 +35,6 @@ export interface ProtocolManifest {
   readonly opencodeVersion: string;
   readonly mockRepoCommit: string;
   readonly platform: string;
-  readonly isolation?: IsolationDeployment;
   readonly files: Readonly<Record<string, string>>;
   readonly suiteDigest: string;
   readonly weights: Readonly<Record<string, number>>;
@@ -62,7 +52,6 @@ export interface ProtocolLock {
   readonly digest: string;
   readonly models: readonly ModelIdentity[];
   readonly runId: string;
-  readonly preflight?: readonly IsolationProof[];
   readonly repair?: RepairPlan;
 }
 
@@ -76,7 +65,6 @@ export interface SlotAttempt {
     readonly signal?: NodeJS.Signals | null;
     readonly reason?: string;
   };
-  readonly preflight?: IsolationProof;
   readonly previous: CaseResult;
   readonly replacement: CaseResult;
 }

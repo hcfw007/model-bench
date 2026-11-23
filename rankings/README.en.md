@@ -26,15 +26,15 @@ open a new version instead of editing historical tables in place.
 
 ## Adding a model
 
-Prepare the isolation config and matching evidence directory following the [release guide](../docs/v1.1-release-ops.md).
+Prepare the matching evidence directory following the [release guide](../docs/v1.1-release-ops.md).
 
 ```bash
 # 1. add an entry to models in bench.config.jsonc
 # 2. run the full set with all models intended for this publication
-node runners/run-bench.ts --mode formal --models <model-a>,<model-b> --out reports/<run> --isolation-config /path/to/backend.json
+node runners/run-bench.ts --mode formal --models <model-a>,<model-b> --out reports/<run>
 
 # 3. only for repairable collection/service errors: repair failed slots under the same protocol
-node runners/run-bench.ts --mode formal --repair reports/<run> --out reports/<repair> --isolation-config /path/to/backend.json
+node runners/run-bench.ts --mode formal --repair reports/<run> --out reports/<repair>
 node runners/merge-results.ts reports/<run> reports/<repair>
 
 # 4. re-render and publish the eligible results

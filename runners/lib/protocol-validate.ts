@@ -1,9 +1,8 @@
 import {
-  digestOf, expectedSlots, FORMAL_CONCURRENCY, FORMAL_COUNTS, FORMAL_REPEAT, FORMAL_WEIGHTS,
+  digestOf, expectedSlots, FORMAL_CONCURRENCY, FORMAL_COUNTS, FORMAL_REPEAT, FORMAL_WEIGHTS, PROTOCOL_SCHEMA,
   slotKey, type LayerId, type ProtocolLock,
 } from './protocol.ts';
 import type { CaseOutcome, CaseResult } from './score.ts';
-import { validatePreflight } from './protocol-isolation.ts';
 
 const HASH = /^[a-f0-9]{64}$/;
 const MODEL = /^[\w.-]+\/[\w.-]+$/;
@@ -64,8 +63,8 @@ function validateRepairPlan(lock: ProtocolLock): void {
 
 export function validateLock(lock: ProtocolLock): void {
   const { manifest, models, digest, runId } = lock;
-  check(isRecord(manifest) && manifest.schema === 1 && HASH.test(digest)
-    && digestOf(manifest) === digest, '协议清单摘要不一致');
+  check(isRecord(manifest) && manifest.schema === PROTOCOL_SCHEMA, `不支持的协议清单 schema（需 ${PROTOCOL_SCHEMA}）`);
+  check(HASH.test(digest) && digestOf(manifest) === digest, '协议清单摘要不一致');
   check(typeof runId === 'string' && runId.length > 0 && ['trial', 'formal'].includes(manifest.mode)
     && typeof manifest.benchmarkVersion === 'string' && typeof manifest.opencodeVersion === 'string'
     && manifest.opencodeVersion.length > 0 && /^[a-f0-9]{40,64}$/.test(manifest.mockRepoCommit)
@@ -95,7 +94,6 @@ export function validateLock(lock: ProtocolLock): void {
     validateFormal(manifest, models);
     check(digestOf(manifest.cases) === manifest.suiteDigest, '正式用例集与协议完整用例集不一致');
   }
-  validatePreflight(lock);
   validateRepairPlan(lock);
 }
 

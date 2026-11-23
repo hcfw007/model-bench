@@ -15,8 +15,6 @@ import { digestOf, expectedSlots, slotKey, type BenchMode, type ProtocolLock, ty
 import { freezeProtocol, resolveIdentities } from './protocol-freeze.ts';
 import { validateRows } from './protocol-validate.ts';
 import { assertMockRepoClean, prepareReference, prepareWorkerRoot, removeWorkerRoot } from './worker.ts';
-import { deliveryProofBlocker, preflightMatches, runIsolationPreflight } from './protocol-isolation.ts';
-import type { IsolationProof } from './scenario-isolation.ts';
 
 export interface ParallelRunResult {
   results: CaseResult[];
@@ -111,14 +109,12 @@ function runWorker(opts: {
   dir: string;
   modelId: string;
   protocol: ProtocolLock;
-  isolationConfigPath?: string;
   active: Set<ChildProcess>;
 }): Promise<WorkerExit> {
-  const { dir, modelId, protocol, active, isolationConfigPath } = opts;
+  const { dir, modelId, protocol, active } = opts;
   const out = join(dir, 'out');
   writeFileSync(join(dir, 'protocol.lock.json'), JSON.stringify(protocol, null, 2), { flag: 'wx' });
-  const args = [join(dir, 'runners', 'run-bench.ts'), '--models', modelId, '--out', out,
-    ...(isolationConfigPath ? ['--isolation-config', isolationConfigPath] : [])];
+  const args = [join(dir, 'runners', 'run-bench.ts'), '--models', modelId, '--out', out];
   // detached 让子进程成为独立进程组，中断时能连同 opencode 孙进程一起杀掉
   const child = spawn(process.execPath, args, {
     cwd: dir,
@@ -155,18 +151,8 @@ export async function runParallelModels(opts: {
   mode: BenchMode;
   repair?: RepairPlan;
   expectedDigest?: string;
-  expectedPreflight?: readonly IsolationProof[];
-  isolationConfigPath?: string;
 }): Promise<ParallelRunResult> {
-  const { cfg, configPath, repoRoot, cases, specs, repeat, concurrency, layers, only, outDir, mode, repair, expectedDigest, expectedPreflight, isolationConfigPath } = opts;
-  if (mode === 'formal' && !isolationConfigPath) throw new Error('正式运行缺少隔离预检参数');
-  const isolated = isolationConfigPath ? runIsolationPreflight(isolationConfigPath, specs.map(({ id }) => id)) : undefined;
-  const preflight = isolated?.preflight;
-  if (repair && (!preflight || !expectedPreflight || preflight.some((proof) =>
-    expectedPreflight.some((prior) => prior.containerId === proof.containerId) || !expectedPreflight.some((prior) =>
-      prior.modelId === proof.modelId && preflightMatches(prior, proof))))) {
-    throw new Error('补槽模型或交付权威身份与主运行不一致');
-  }
+  const { cfg, configPath, repoRoot, cases, specs, repeat, concurrency, layers, only, outDir, mode, repair, expectedDigest } = opts;
   assertMockRepoClean(cfg.bench.mockRepo);
   mkdirSync(outDir, { recursive: true });
 
@@ -212,8 +198,7 @@ export async function runParallelModels(opts: {
     });
     protocol = freezeProtocol({
       root: reference.dir, mockRepoCommit: reference.commit, mode, concurrency, repeat, layers, only,
-      models: resolveIdentities(specs), repair, preflight,
-      isolation: isolated?.deployment,
+      models: resolveIdentities(specs), repair,
     });
     if (JSON.stringify(protocol.manifest.cases.map(({ id }) => id)) !== JSON.stringify(cases.map(({ id }) => id))) {
       throw new Error('参考快照的用例集发生变化');
@@ -229,7 +214,7 @@ export async function runParallelModels(opts: {
           dest: join(workersDir, `${String(index).padStart(2, '0')}-${safeName(spec.id)}`),
         });
         process.stdout.write(`[${spec.id}] 测试床 ${layout.dir} @ ${layout.commit.slice(0, 7)}\n`);
-        const exit = await runWorker({ dir: layout.dir, modelId: spec.id, protocol, active: activeChildren, isolationConfigPath });
+        const exit = await runWorker({ dir: layout.dir, modelId: spec.id, protocol, active: activeChildren });
         exits.set(spec.id, exit);
         const partial = join(layout.dir, 'out', 'results.partial.json');
         const raw = existsSync(partial) ? readFileSync(partial, 'utf8') : '[]';
@@ -240,14 +225,7 @@ export async function runParallelModels(opts: {
         const { rows, rejected } = recoverWorkerRows(workerLock, JSON.parse(raw));
         const reason = `worker exit=${exit.signal ?? exit.code}，缺槽 ${slots.length - rows.length}，无效/冲突记录 ${rejected}`;
         if (exit.code !== 0 || rejected > 0 || rows.length !== slots.length) incomplete.set(spec.id, reason);
-        const expected = protocol.preflight?.find(({ modelId }) => modelId === spec.id);
-        const verifiedRows = expected ? rows.map((row): CaseResult => {
-          if (row.violation || row.outcome === 'missing_evidence' || row.outcome === 'error') return row;
-          const failure = deliveryProofBlocker(row, expected);
-          if (!failure) return row;
-          return { ...row, outcome: 'missing_evidence', pass: false, error: [row.error, failure].filter(Boolean).join('\n') };
-        }) : rows;
-        parts.set(spec.id, fillMissing(protocol, spec.id, verifiedRows, reason));
+        parts.set(spec.id, fillMissing(protocol, spec.id, rows, reason));
         // 每完成一个模型就把已合并结果落盘，进程中断也不丢已完成模型
         try {
           writeFileSync(
