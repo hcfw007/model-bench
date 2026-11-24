@@ -12,7 +12,8 @@ export interface ChildInvocation extends ActivityWindow {
 export interface MessageRow {
   readonly seq: number;
   readonly type: string;
-  readonly data: string;
+  readonly data: Record<string, unknown> | undefined;
+  readonly content: readonly Record<string, unknown>[] | undefined;
   readonly time_created: number;
   readonly time_updated: number;
 }
@@ -23,12 +24,23 @@ export function record(value: unknown): Record<string, unknown> | undefined {
     : undefined;
 }
 
-export function parseMessage(row: MessageRow): Record<string, unknown> | undefined {
+export function parseRecord(data: unknown): Record<string, unknown> | undefined {
   try {
-    return record(JSON.parse(row.data));
+    const json = data instanceof Uint8Array ? new TextDecoder('utf-8', { fatal: true }).decode(data) : data;
+    return typeof json === 'string' ? record(JSON.parse(json)) : undefined;
   } catch {
     return undefined;
   }
+}
+
+export function contentPart(value: unknown): Record<string, unknown> | undefined {
+  const part = record(value);
+  if (!part || typeof part.type !== 'string') return undefined;
+  if (part.type === 'text' && typeof part.text !== 'string') return undefined;
+  if (part.type === 'tool' && (typeof part.name !== 'string' || typeof record(part.state)?.status !== 'string')) {
+    return undefined;
+  }
+  return part;
 }
 
 export function numberValue(value: unknown): number | undefined {
@@ -55,9 +67,8 @@ export function initialInvocation(
   const end = boundary?.time_created ?? observedAt;
   const activity = messages.flatMap((message: MessageRow): ActivityWindow[] => {
     if (message.type !== 'assistant' || message.seq <= request.seq || (boundary && message.seq >= boundary.seq)) return [];
-    const data = parseMessage(message);
-    if (!Array.isArray(data?.content) || data.content.length === 0) return [];
-    const time = record(data.time);
+    if (!message.content?.length) return [];
+    const time = record(message.data?.time);
     const start = Math.max(request.time_created, numberValue(time?.created) ?? message.time_created);
     const stop = Math.min(end, numberValue(time?.completed) ?? message.time_updated);
     return start < stop ? [{ start, end: stop }] : [];

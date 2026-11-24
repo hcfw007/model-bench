@@ -1,7 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite';
 
 import {
-  hasActiveOverlap, initialInvocation, numberValue, parseMessage, record, textParts,
+  contentPart, hasActiveOverlap, initialInvocation, numberValue, parseRecord, record, textParts,
   type ChildInvocation, type MessageRow,
 } from './trace-events.ts';
 
@@ -68,32 +68,72 @@ interface SessionNode {
   depth: number;
 }
 
-function collectDescendants(db: DatabaseSync, rootId: string): SessionNode[] {
-  const out: SessionNode[] = [];
-  let frontier: Array<{ id: string; depth: number }> = [{ id: rootId, depth: 0 }];
-  const seen = new Set<string>([rootId]);
-  while (frontier.length > 0) {
-    const next: Array<{ id: string; depth: number }> = [];
-    for (const node of frontier) {
-      const rows = db
-        .prepare('select id from session_v2 where parent_id = ?')
-        .all(node.id) as Array<{ id: string }>;
-      for (const r of rows) {
-        if (seen.has(r.id)) continue;
-        seen.add(r.id);
-        const depth = node.depth + 1;
-        out.push({ id: r.id, parentId: node.id, depth });
-        next.push({ id: r.id, depth });
-      }
-    }
-    frontier = next;
-  }
-  return out;
+interface StoredMessage {
+  readonly session_id: string;
+  readonly seq: number;
+  readonly type: string;
+  readonly data: unknown;
+  readonly time_created: number;
+  readonly time_updated: number;
+  readonly part_ordinal: number | null;
+  readonly part_type: string | null;
+  readonly part_data: unknown;
 }
 
-function readMessages(db: DatabaseSync, sessionId: string): MessageRow[] {
-  return db.prepare('select seq, type, data, time_created, time_updated from session_message where session_id = ? order by seq')
-    .all(sessionId) as unknown as MessageRow[];
+const SESSION_TREE = `with recursive tree(id, parent_id, depth) as (
+  select id, null, 0 from session_v2 where id = $rootId
+  union all
+  select child.id, child.parent_id, tree.depth + 1
+  from tree join session_v2 child on child.parent_id = tree.id where child.id <> $rootId
+)`;
+
+function collectDescendants(db: DatabaseSync, rootId: string): SessionNode[] {
+  return db.prepare(`${SESSION_TREE}
+    select id, parent_id as parentId, depth from tree where depth > 0 order by depth, id`)
+    .all({ $rootId: rootId }) as unknown as SessionNode[];
+}
+
+function readContent(
+  rows: readonly StoredMessage[], data: Record<string, unknown>, hasPartTable: boolean,
+): MessageRow['content'] {
+  const content = rows[0].part_ordinal !== null
+    ? rows.map((row: StoredMessage, index: number): ReturnType<typeof contentPart> => {
+      const part = contentPart(parseRecord(row.part_data));
+      return row.part_ordinal === index && part?.type === row.part_type ? part : undefined;
+    })
+    // In the split schema, [] without part rows does not prove that the reply was empty.
+    : Array.isArray(data.content) && (!hasPartTable || data.content.length > 0)
+      ? data.content.map(contentPart) : undefined;
+  if (!content) return undefined;
+  return content.every((part): part is Record<string, unknown> => part !== undefined) ? content : undefined;
+}
+
+function readMessages(db: DatabaseSync, rootId: string): Map<string, MessageRow[]> {
+  const hasPartTable = db.prepare("select 1 from sqlite_schema where type = 'table' and name = 'session_part'").get() !== undefined;
+  const [ordinal, type, data] = hasPartTable ? ['p.ordinal', 'p.type', 'p.data'] : ['null', 'null', 'null'];
+  const join = hasPartTable
+    ? "left join session_part p on p.session_id = m.session_id and p.message_id = m.id and m.type = 'assistant'"
+    : '';
+  const rows = db.prepare(`${SESSION_TREE}
+    select m.session_id, m.seq, m.type, m.data, m.time_created, m.time_updated,
+      ${ordinal} as part_ordinal, ${type} as part_type, ${data} as part_data
+    from tree join session_message m on m.session_id = tree.id ${join}
+    order by m.session_id, m.seq, part_ordinal`).all({ $rootId: rootId }) as unknown as StoredMessage[];
+
+  const messages = new Map<string, MessageRow[]>();
+  let index = 0;
+  while (index < rows.length) {
+    const row = rows[index];
+    let next = index + 1;
+    while (rows[next]?.session_id === row.session_id && rows[next].seq === row.seq) next += 1;
+    const entries = messages.get(row.session_id) ?? [];
+    const data = row.type === 'assistant' ? parseRecord(row.data) : undefined;
+    entries.push({ seq: row.seq, type: row.type, time_created: row.time_created, time_updated: row.time_updated,
+      data, content: data ? readContent(rows.slice(index, next), data, hasPartTable) : undefined });
+    messages.set(row.session_id, entries);
+    index = next;
+  }
+  return messages;
 }
 
 function readTool(
@@ -139,7 +179,8 @@ export function collectTrace(db: DatabaseSync, rootId: string | null): RecordedT
   const toolErrors: Record<string, number> = {};
   const incompleteSessions = new Set<string>();
   const invocations: ChildInvocation[] = [];
-  const rootMessages = readMessages(db, rootId);
+  const messages = readMessages(db, rootId);
+  const rootMessages = messages.get(rootId) ?? [];
   const rootInputs = rootMessages.filter((message: MessageRow): boolean => message.type === 'user');
   const answersByTurn = rootInputs.map((): string => '');
   const finalObservedByTurn = rootInputs.map((): boolean => false);
@@ -148,7 +189,7 @@ export function collectTrace(db: DatabaseSync, rootId: string | null): RecordedT
   let modelSwitches = 0;
 
   for (const { id: sid, parentId } of [{ id: rootId, parentId: null }, ...descendants]) {
-    const msgs = sid === rootId ? rootMessages : readMessages(db, sid);
+    const msgs = messages.get(sid) ?? [];
     if (parentId) {
       const invocation = initialInvocation(sid, parentId, msgs, observedAt);
       if (invocation) invocations.push(invocation);
@@ -159,15 +200,17 @@ export function collectTrace(db: DatabaseSync, rootId: string | null): RecordedT
       if (m.type === 'compaction') compactionCount += 1;
       if (m.type === 'model-switched') modelSwitches += 1;
       if (m.type !== 'assistant') continue;
-      const data = parseMessage(m);
-      if (!Array.isArray(data?.content)) {
+      const { data, content } = m;
+      if (!data || !content) {
         incompleteSessions.add(sid);
+        if (sid === rootId && turnCursor > 0) {
+          finalObservedByTurn[turnCursor - 1] = false;
+          answersByTurn[turnCursor - 1] = '';
+        }
         continue;
       }
-      const content: unknown[] = data.content;
-      content.forEach((value: unknown, partIndex: number): void => {
-        const part = record(value);
-        if (part?.type !== 'tool') return;
+      content.forEach((part: Record<string, unknown>, partIndex: number): void => {
+        if (part.type !== 'tool') return;
         const at = numberValue(record(part.time)?.ran) ?? m.time_created;
         const turn = sid === rootId ? turnCursor : messageTurn(rootInputs, at);
         const call = readTool(part, m, turn, sid, parentId, partIndex);
@@ -175,7 +218,7 @@ export function collectTrace(db: DatabaseSync, rootId: string | null): RecordedT
         if (call.status !== 'completed') toolErrors[call.name] = (toolErrors[call.name] ?? 0) + 1;
       });
       if (sid !== rootId || turnCursor === 0) continue;
-      const hasTools = content.some((part: unknown): boolean => record(part)?.type === 'tool');
+      const hasTools = content.some((part: Record<string, unknown>): boolean => part.type === 'tool');
       const completed = numberValue(record(data.time)?.completed);
       const answer = textParts(content);
       const hasFinal = completed !== undefined && !hasTools

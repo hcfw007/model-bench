@@ -367,8 +367,102 @@ function assertL1Answers(): void {
   }
 }
 
+function assertSplitParts(): void {
+  const db = fixture();
+  try {
+    db.exec(`
+      ALTER TABLE session_message ADD COLUMN id TEXT;
+      CREATE TABLE session_part (message_id TEXT, session_id TEXT, ordinal INTEGER, type TEXT, call_id TEXT,
+        time_created INTEGER, time_updated INTEGER, data TEXT, PRIMARY KEY (message_id, ordinal));
+      INSERT INTO session_v2 VALUES ('child', 'root', 20, 250, 0, 0);
+      INSERT INTO session_v2 VALUES ('sibling', 'root', 22, 250, 0, 0);
+      INSERT INTO session_v2 VALUES ('unrelated', NULL, 20, 250, 0, 0);
+    `);
+    const event = (sessionId: string, seq: number, type: string, start: number, end: number,
+      data: Record<string, unknown> = {}): string => {
+      const id = `${sessionId}:${seq}`;
+      db.prepare('INSERT INTO session_message VALUES (?, ?, ?, ?, ?, ?, ?)')
+        .run(sessionId, seq, type, JSON.stringify(data), start, end, id);
+      return id;
+    };
+    const split = (sessionId: string, seq: number, start: number, end: number, finish: string,
+      content: readonly unknown[] = []): string => event(sessionId, seq, 'assistant', start, end,
+      { content, finish, time: { created: start, completed: end } });
+    const insert = db.prepare('INSERT INTO session_part VALUES (?, ?, ?, ?, NULL, 0, 0, ?)');
+    const part = (messageId: string, sessionId: string, ordinal: number, value: Record<string, unknown>): void => {
+      insert.run(messageId, sessionId, ordinal, String(value.type), JSON.stringify(value));
+    };
+    event(ROOT, 1, 'user', 10, 10);
+    const actions = split(ROOT, 2, 15, 19, 'tool-calls', [tool('subagent', { prompt: 'first' }, 16, 17)]);
+    part(actions, ROOT, 2, tool('subagent', { prompt: 'second' }, 16, 17, { child: 'sibling' }));
+    part(actions, ROOT, 1, tool('subagent', { prompt: 'first' }, 16, 18, { child: 'child', output: 'captured' }));
+    part(actions, ROOT, 0, { type: 'reasoning', text: 'not an answer' });
+    part(split(ROOT, 3, 30, 40, 'stop'), ROOT, 0, text('round one'));
+    event(ROOT, 4, 'user', 90, 90);
+    event(ROOT, 5, 'compaction', 91, 91);
+    event(ROOT, 6, 'model-switched', 92, 92);
+    const answer = split(ROOT, 7, 115, 125, 'stop');
+    part(answer, ROOT, 1, text('second'));
+    insert.run(answer, ROOT, 0, 'text', Buffer.from(JSON.stringify(text('first'))));
+    event('child', 1, 'user', 20, 20);
+    part(split('child', 2, 35, 110, 'tool-calls'), 'child', 0,
+      tool('shell', { command: 'read' }, 95, 100, { exit: 1, output: 'not successful' }));
+    event('child', 3, 'idle', 112, 112);
+    event('sibling', 1, 'user', 22, 22);
+    part(split('sibling', 2, 50, 65, 'tool-calls'), 'sibling', 0,
+      tool('read', { path: 'one' }, 53, 56, { status: 'error' }));
+    split('sibling', 3, 65, 70, 'stop', [text('legacy inline fallback')]);
+    event('sibling', 4, 'idle', 71, 71);
+    part(split('unrelated', 1, 0, 1, 'stop'), 'unrelated', 0, text('unrelated'));
+
+    const trace = getTrace(db);
+    assert.deepEqual(trace.answersByTurn, ['round one', 'first\nsecond']);
+    assert.deepEqual(trace.finalObservedByTurn, [true, true]);
+    assert.deepEqual(trace.incompleteSessions, []);
+    assert.deepEqual(trace.toolCalls.map((call: ToolCall) => [call.name, call.sessionId, call.parentId, call.seq,
+      call.partIndex, call.turn, call.startedAt, call.endedAt, call.childSessionId]), [
+      ['subagent', ROOT, null, 2, 1, 1, 16, 18, 'child'],
+      ['subagent', ROOT, null, 2, 2, 1, 16, 17, 'sibling'],
+      ['shell', 'child', ROOT, 2, 0, 2, 95, 100, undefined],
+      ['read', 'sibling', ROOT, 2, 0, 1, 53, 56, undefined],
+    ]);
+    assert.equal(trace.toolCalls[2].exitCode, 1);
+    assert.equal(trace.toolCalls[2].output, '');
+    assert.equal(trace.toolCalls[0].output, 'captured');
+    assert.equal(trace.toolCalls[0].outputCaptured, true);
+    assert.equal(trace.toolCalls[3].error, 'failed');
+    assert.deepEqual(trace.toolErrors, { read: 1 });
+    assert.deepEqual([trace.subagentCount, trace.maxAgentDepth, trace.subagentsParallel,
+      trace.compactionCount, trace.modelSwitches, trace.tokensInput, trace.tokensOutput], [2, 1, true, 1, 1, 5, 6]);
+    assert.equal(trace.invocations[1].activity.length, 2);
+
+    const missing = split(ROOT, 8, 130, 140, 'stop');
+    part(missing, 'unrelated', 0, text('wrong session'));
+    const incomplete = getTrace(db);
+    assert.deepEqual(incomplete.incompleteSessions, [ROOT]);
+    assert.deepEqual(incomplete.finalObservedByTurn, [true, false]);
+    assert.equal(assertTrajectory({ type: 'toolOrder', before: 'read', searchTargets: [POLL], readTarget: POLL },
+      { trace: incomplete, answer: '', worktree: WORKTREE, forbidden: [], startedAt: 0 })?.missingEvidence, true);
+    db.exec("DELETE FROM session_part WHERE message_id = 'root:8'");
+    insert.run(missing, ROOT, 0, 'text', '{');
+    assert.deepEqual(getTrace(db).incompleteSessions, [ROOT]);
+    db.exec("DELETE FROM session_part WHERE message_id = 'root:8'");
+    part(missing, ROOT, 1, text('missing ordinal zero'));
+    assert.deepEqual(getTrace(db).incompleteSessions, [ROOT]);
+    db.exec("DELETE FROM session_part WHERE message_id = 'root:8'");
+    part(missing, ROOT, 0, text(''));
+    const explicitEmpty = getTrace(db);
+    assert.deepEqual(explicitEmpty.incompleteSessions, []);
+    assert.deepEqual(explicitEmpty.finalObservedByTurn, [true, true]);
+    assert.equal(explicitEmpty.finalText, '');
+  } finally {
+    db.close();
+  }
+}
+
 export function runTraceTests(): void {
   assertTurns();
+  assertSplitParts();
   assertSearchOrder();
   assertEditOrder();
   assertReadOnlySearchPipelines();
