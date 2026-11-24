@@ -9,10 +9,10 @@ opencode 个人基准：用 `opencode run` 在 mockrepo 的 worktree 里跑 case
   1. `node runners/selftest.ts`：离线单测、临时工作树/SQLite、假 CLI 集成，不调模型
   2. `node runners/run-bench.ts --dry-run`：校验所有 case 的断言类型
 - `node runners/run-bench.ts` 会真实调用模型、消耗 token、写用户自己的 opencode.db，未经用户要求不要跑。缩小范围用 `--layers l0`、`--cases l1-05`（子串匹配）、`--models <id,...>`、`--repeat`、`--out reports/<dir>`。
-- `--models` 取 `bench.config.jsonc` 登记的官方 id，未知模型应报错。`--mode trial` 是默认；`formal` 禁止筛题，固定 33 题 × 3 次、并发 2、`high`。两种模式不可混用。
-- 并发：`run.concurrency` 默认 2，可用 `--concurrency` 覆盖；`1` 走原串行路径。`>1` 时每个模型一份独立测试床（复制 runners/cases/fixtures，克隆 mockrepo 到系统临时目录），模型内 case 仍串行，跑完删除。并行前要求 mockrepo 干净，否则拒绝运行。
+- `--models` 取 `bench.config.jsonc` 登记的官方 id，未知模型应报错。`--mode trial` 是默认；`formal` 禁止筛题，固定 33 题 × 3 次、并发 5、`high`。两种模式不可混用。
+- 并发：`run.concurrency` 默认 5，可用 `--concurrency` 覆盖；trial 的 `1` 走原串行路径，formal 按订阅分派冻结 worker。`>1` 时每个模型一份独立测试床（复制 runners/cases/fixtures，克隆 mockrepo 到系统临时目录），模型内 case 仍串行，跑完删除。并行前要求 mockrepo 干净，否则拒绝运行。
 - 并行只改调度：每个 case 的超时、断言、评分完全不变，结果按「模型声明顺序 → 用例顺序」合并。缺用例的模型整体排除出评分并写 `incomplete.md`，进程退出码 1。同一次 run 内所有模型共享同一并发度；跨 run 比较需并发度一致。
-- 并行测试床在系统临时目录 `model-bench-run-*`，正常退出删除；SIGKILL/断电可能残留，确认无同步进程后手动删除。`--concurrency 1` 完全走原串行路径。
+- 并行测试床在系统临时目录 `model-bench-run-*`，正常退出删除；SIGKILL/断电可能残留，确认无同步进程后手动删除。formal 的单 worker 路径仍支持冻结输入和补槽。
 - `run.maxTurns` 只在类型里声明，代码没用到。
 
 ## 结果后处理（都读 `reports/<dir>/results.json`）

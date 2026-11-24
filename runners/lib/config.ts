@@ -40,6 +40,7 @@ export interface BenchConfig {
     timeoutSec: number;
     maxTurns: number;
     keepWorktree: boolean;
+    quotaFallback?: { from: string; to: string };
     switchModel?: string;
     switchFallback?: string;
   };

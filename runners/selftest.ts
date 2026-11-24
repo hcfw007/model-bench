@@ -145,6 +145,7 @@ await (await import('./checks/trace.ts')).runTraceTests();
 await (await import('./checks/l3-disputes.ts')).runL3DisputeTests();
 await (await import('./checks/scenarios.ts')).runScenarioTests();
 await (await import('./checks/runner.ts')).runRunnerTests();
+await (await import('./checks/model-pool.ts')).runModelPoolTests();
 await (await import('./checks/protocol.ts')).runProtocolTests();
 await (await import('./checks/cli.ts')).runCliTests();
 console.log('✓ selftest 全部通过：基础断言 / 净产物 / 逐轮轨迹 / 离线场景 / 编排 / 发布协议');

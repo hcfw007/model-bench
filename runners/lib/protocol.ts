@@ -72,7 +72,7 @@ export interface SlotAttempt {
 export const FORMAL_WEIGHTS = { l0: 10, l1: 20, l2: 40, l3: 25 } as const;
 export const FORMAL_COUNTS = { l0: 7, l1: 10, l2: 8, l3: 8 } as const;
 export const FORMAL_REPEAT = 3;
-export const FORMAL_CONCURRENCY = 2;
+export const FORMAL_CONCURRENCY = 5;
 export const CALIBRATION_TYPES = new Set(['autoTagConclusion', 'diffFiles', 'diffLines', 'diffAddedText', 'toolOrder',
   'subagents', 'nestedAgents', 'noEditsAfterTurn', 'modelSwitches', 'scenario']);
 

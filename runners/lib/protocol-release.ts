@@ -36,7 +36,7 @@ export function verifyCalibrationTrial(formalLock: ProtocolLock, trial: RunResul
   if (formalLock.manifest.mode !== 'formal' || formalLock.repair || trialLock.manifest.mode !== 'trial'
     || trialLock.manifest.repeat !== FORMAL_REPEAT || trialLock.manifest.concurrency !== formalLock.manifest.concurrency
     || trialLock.repair || contentDigest(formalLock) !== contentDigest(trialLock)) {
-    throw new Error('试跑必须基于同一内容锁、每题 3 次、并发 2 且模式为 trial');
+    throw new Error('试跑必须基于同一内容锁、每题 3 次、并发与正式锁一致且模式为 trial');
   }
   const expected = formalLock.manifest.cases.filter(({ id }) => calibrationTrialCases(formalLock).includes(id));
   if (digestOf(expected) !== digestOf(trialLock.manifest.cases)) throw new Error('试跑未精确覆盖改题集');

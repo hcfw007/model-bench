@@ -35,7 +35,8 @@
     "switchModel": "openai/gpt-6.2-astra#high",
     "switchFallback": "openai/gpt-6.2-sol#high",
     // 并行模型数；1 = 串行，>1 = 每模型独立克隆 mockrepo
-    "concurrency": 2,
+    "quotaFallback": { "from": "volc-a", "to": "volc-c" },
+    "concurrency": 5,
     "timeoutSec": 600,
     "maxTurns": 40,
     "keepWorktree": false

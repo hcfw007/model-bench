@@ -51,7 +51,7 @@ function calibrate(): void {
 if (evidenceDir && action !== 'verify') mkdirSync(evidenceDir, { recursive: true });
 switch (action) {
   case 'trial-args':
-    console.log(`--mode trial --repeat 3 --concurrency 2 --cases ${calibrationTrialCases(lock).join(',')} --models ${REQUIRED_MODELS.join(',')},<non-openai-flash>`);
+    console.log(`--mode trial --repeat 3 --concurrency ${lock.manifest.concurrency} --cases ${calibrationTrialCases(lock).join(',')} --models ${REQUIRED_MODELS.join(',')},<non-openai-flash>`);
     break;
   case 'calibrate':
     calibrate();

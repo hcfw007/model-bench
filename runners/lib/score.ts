@@ -1,5 +1,18 @@
 export type CaseOutcome = 'pass' | 'assert_fail' | 'timeout' | 'missing_evidence' | 'error' | 'violation';
 
+export interface QuotaFallbackEvidence {
+  readonly reason: 'subscription_quota_exhausted';
+  readonly code: string;
+  readonly trigger: {
+    readonly caseId: string;
+    readonly repeatIndex: number;
+    readonly modelRef: string;
+    readonly sessionId: string;
+    readonly turn: number;
+  };
+  readonly originalAttempt?: Omit<CaseResult, 'quotaFallback'>;
+}
+
 export interface CaseResult {
   caseId: string;
   layer: string;
@@ -21,6 +34,8 @@ export interface CaseResult {
   repeatIndex?: number;
   outcome?: CaseOutcome;
   checkpoints?: readonly unknown[];
+  readonly actualModelRef?: string;
+  readonly quotaFallback?: QuotaFallbackEvidence;
 }
 
 export interface LayerScore {

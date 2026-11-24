@@ -11,6 +11,7 @@ import type { BenchConfig, ModelSpec } from './config.ts';
 import type { CaseDef } from './runner.ts';
 import type { CaseResult } from './score.ts';
 import type { RunMeta } from './parallel.ts';
+import { pool } from './model-pool.ts';
 import { digestOf, expectedSlots, slotKey, type BenchMode, type ProtocolLock, type RepairPlan } from './protocol.ts';
 import { freezeProtocol, resolveIdentities } from './protocol-freeze.ts';
 import { validateRows } from './protocol-validate.ts';
@@ -37,19 +38,6 @@ function fillMissing(protocol: ProtocolLock, modelId: string, rows: CaseResult[]
       turns: 0, tokensInput: 0, tokensOutput: 0, durationSec: 0, toolErrors: {}, assertions: [],
     };
   });
-}
-
-/** 固定的槽位数，跑完即取下一个模型；同时最多 limit 个模型在执行 */
-async function pool<T>(items: T[], limit: number, task: (item: T, index: number) => Promise<void>): Promise<void> {
-  let cursor = 0;
-  const slots = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    for (;;) {
-      const index = cursor++;
-      if (index >= items.length) return;
-      await task(items[index], index);
-    }
-  });
-  await Promise.all(slots);
 }
 
 interface LineSource {
@@ -205,7 +193,7 @@ export async function runParallelModels(opts: {
     }
     if (expectedDigest !== undefined && protocol.digest !== expectedDigest) throw new Error('当前环境与主运行的协议锁不一致');
     writeFileSync(join(outDir, 'protocol.lock.json'), `${JSON.stringify(protocol, null, 2)}\n`, { flag: 'wx' });
-    await pool(specs, concurrency, async (spec, index) => {
+    await pool(protocol.models, concurrency, async (spec, index): Promise<void> => {
       const started = Date.now();
       try {
         const layout = prepareWorkerRoot({

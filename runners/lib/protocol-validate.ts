@@ -27,7 +27,7 @@ export function validateFormal(
   models: ProtocolLock['models'],
 ): void {
   check(/^1\.1(?:\.0)?$/.test(manifest.benchmarkVersion), '正式运行要求 v1.1 配置');
-  check(manifest.repeat === FORMAL_REPEAT && manifest.concurrency === FORMAL_CONCURRENCY, '正式协议要求每题重复 3 次、并发 2');
+  check(manifest.repeat === FORMAL_REPEAT && manifest.concurrency === FORMAL_CONCURRENCY, '正式协议要求每题重复 3 次、并发 5');
   check(manifest.cases.length === 33, '正式协议必须包含恰好 33 题');
   for (const [layer, count] of Object.entries(FORMAL_COUNTS)) {
     check(manifest.cases.filter((row) => row.layer === layer).length === count, `${layer} 正式用例数必须为 ${count}`);

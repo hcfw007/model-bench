@@ -195,7 +195,7 @@ function runSerialTrial(): RunResults {
 }
 
 console.log(`${mode}｜并发 ${concurrency}｜模型 ${specs.length} 个｜${repair?.slots.length ?? specs.length * cases.length * repeat} 个用例槽位`);
-const outcome = concurrency === 1 ? runSerialTrial() : { config: cfg, ...await runParallelModels({
+const outcome = mode === 'trial' && concurrency === 1 ? runSerialTrial() : { config: cfg, ...await runParallelModels({
   cfg, configPath, repoRoot: root, cases, specs, repeat, concurrency, layers, only, outDir, mode,
   repair, expectedDigest: base?.protocol.digest,
 }) };

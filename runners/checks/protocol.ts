@@ -22,7 +22,7 @@ function fixture(): RunResults {
   })));
   const models = ['bench/a', 'bench/b'].map((id) => ({ id, model: id, variant: 'high' }));
   const manifest: ProtocolManifest = {
-    schema: PROTOCOL_SCHEMA, benchmarkVersion: '1.1.0', mode: 'formal', concurrency: 2, repeat: 3, opencodeVersion: '2.0',
+    schema: PROTOCOL_SCHEMA, benchmarkVersion: '1.1.0', mode: 'formal', concurrency: 5, repeat: 3, opencodeVersion: '2.0',
     mockRepoCommit, platform: 'darwin/arm64',
     files: { 'bench.config.jsonc': hash, 'runners/lib/runner.ts': hash, 'cases/a.json': hash },
     cases, suiteDigest: digestOf(cases),
@@ -39,7 +39,7 @@ function fixture(): RunResults {
   const config = { bench: { version: '1.1.0' }, weights: FORMAL_WEIGHTS,
     run: { switchModel: manifest.handoff!.primary, switchFallback: manifest.handoff!.fallback } } as BenchConfig;
   return { config, protocol, results, meta: {
-    mode: 'parallel', concurrency: 2, mockRepoCommit, startedAt: '2026-11-19',
+    mode: 'parallel', concurrency: 5, mockRepoCommit, startedAt: '2026-11-19',
     workers: models.map(({ id: modelId }) => ({ modelId, status: 'complete' })),
   } };
 }

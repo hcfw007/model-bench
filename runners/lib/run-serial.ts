@@ -4,8 +4,10 @@
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+
 import { resolveModelRef, type BenchConfig, type ModelSpec } from './config.ts';
-import { requireSafeExecution, runCase, type CaseDef, type CaseResult } from './runner.ts';
+import { createQuotaFallbackRunner } from './quota-fallback.ts';
+import { requireSafeExecution, type CaseDef, type CaseResult } from './runner.ts';
 
 export interface SerialSlot {
   readonly modelId?: string;
@@ -56,6 +58,7 @@ export function runSerialModels(opts: SerialRunOptions): CaseResult[] {
   mkdirSync(outDir, { recursive: true });
 
   const results: CaseResult[] = [];
+  const runSlot = createQuotaFallbackRunner(cfg);
   let done = 0;
 
   for (const spec of specs) {
@@ -66,9 +69,10 @@ export function runSerialModels(opts: SerialRunOptions): CaseResult[] {
         modelRef ??= resolveModelRef(spec.model) + (spec.variant ? `#${spec.variant}` : '');
         done += 1;
         process.stdout.write(`[${done}/${total}] ${spec.id} ${c.id} ... `);
-        const res = runCase({ cfg, casesRoot, caseDef: c, modelId: spec.id, modelRef, idx: r });
+        const res = runSlot({ cfg, casesRoot, caseDef: c, modelId: spec.id, modelRef, idx: r }, spec.model);
         results.push(res);
-        process.stdout.write(`${res.outcome.toUpperCase()} (${res.turns}轮 ${res.durationSec}s)\n`);
+        const execution = res.actualModelRef ? ` via ${res.actualModelRef}` : '';
+        process.stdout.write(`${res.outcome.toUpperCase()} (${res.turns}轮 ${res.durationSec}s)${execution}\n`);
         writeFileSync(resolve(outDir, 'results.partial.json'), JSON.stringify(results, null, 2));
       }
     }
