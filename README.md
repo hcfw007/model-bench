@@ -2,13 +2,29 @@
 
 **中文** | [English](README.en.md)
 
-> **[v1.1 排行](rankings/v1.1.md)** · [用例与计分协议](docs/v1.1-design.md)
->
-> **最新结果：[v1.1 单次试跑复核榜（完整 15 款）](reports/V1.1-OFFLINE-REVIEW.md)** · 2026-11-23
-> 前三：GPT-6.1 Terra（100.0）、GPT-6 Luna（95.7）、GPT-6 Astra（91.4）。每模型 33 题各取一次结果，其中 5 题经过人工复核。
+> **[v1.1 正式排行](rankings/v1.1.md)** · 15 款模型，每款 33 题 × 3 次 · [评分标准与跑分记录](rankings/v1.1.md#评分标准)
 >
 > <!-- RANKING:START -->
-> 暂无 v1.1 正式成绩。
+> <!-- PROTOCOL:v1.1 c7af9d80623ee93480d09dfeabb8218a8aea61e912fe9f2d6b3cc331b3ab292b -->
+> | # | 模型 | 总分 |
+> |---|---|---|
+> | 1 | `openai/gpt-6-luna` | **86.8** |
+> | 2 | `volc-a/deepseek-v4.1-flash` | **83.7** |
+> | 3 | `volc-a/deepseek-v4.1-flash-economy` | **83.6** |
+> | 4 | `openai/gpt-6.2-astra` | **80.1** |
+> | 5 | `openai/gpt-6.1-sol` | **79.2** |
+> | 6 | `kiro/claude-sonnet-5-5` | **78.8** |
+> | 7 | `volc-a/glm-5.3-flash` | **77.9** |
+> | 8 | `openai/gpt-6.2-sol` | **76.9** |
+> | 9 | `openai/gpt-6-astra` | **76.3** |
+> | 10 | `openai/gpt-6.1-terra` | **74.9** |
+> | 11 | `volc-a/glm-5.3` | **71.1** |
+> | 12 | `volc-a/kimi-k3.1-pro` | **70.6** |
+> | 13 | `kiro/claude-opus-5-5` | **70.2** |
+> | 14 | `mimo/mimo-v2.6-flash` | **69.8** |
+> | 15 | `mimo/mimo-v2.6-pro` | **69.6** |
+>
+> 33 个用例 · 2026-11-25
 > <!-- RANKING:END -->
 >
 > ### 📊 [v1.0 最终排行（已归档）](rankings/v1.0.md)

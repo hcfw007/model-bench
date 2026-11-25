@@ -2,13 +2,29 @@
 
 [中文](README.md) | **English**
 
-> **[v1.1 rankings](rankings/v1.1.md)** · [Cases and scoring protocol (Chinese)](docs/v1.1-design.md)
->
-> **Latest results: [v1.1 reviewed single-run standings (all 15 models)](reports/V1.1-OFFLINE-REVIEW.md)** · 2026-11-23
-> Top three: GPT-6.1 Terra (100.0), GPT-6 Luna (95.7), GPT-6 Astra (91.4). One result per model per case across 33 cases; five cases were manually reviewed.
+> **[Formal v1.1 rankings](rankings/v1.1.md)** · 15 models, 33 cases × 3 runs per model · [Scoring and run record](rankings/v1.1.md#评分标准)
 >
 > <!-- RANKING:START -->
-> No formal v1.1 scores yet.
+> <!-- PROTOCOL:v1.1 c7af9d80623ee93480d09dfeabb8218a8aea61e912fe9f2d6b3cc331b3ab292b -->
+> | # | Model | Score |
+> |---|---|---|
+> | 1 | `openai/gpt-6-luna` | **86.8** |
+> | 2 | `volc-a/deepseek-v4.1-flash` | **83.7** |
+> | 3 | `volc-a/deepseek-v4.1-flash-economy` | **83.6** |
+> | 4 | `openai/gpt-6.2-astra` | **80.1** |
+> | 5 | `openai/gpt-6.1-sol` | **79.2** |
+> | 6 | `kiro/claude-sonnet-5-5` | **78.8** |
+> | 7 | `volc-a/glm-5.3-flash` | **77.9** |
+> | 8 | `openai/gpt-6.2-sol` | **76.9** |
+> | 9 | `openai/gpt-6-astra` | **76.3** |
+> | 10 | `openai/gpt-6.1-terra` | **74.9** |
+> | 11 | `volc-a/glm-5.3` | **71.1** |
+> | 12 | `volc-a/kimi-k3.1-pro` | **70.6** |
+> | 13 | `kiro/claude-opus-5-5` | **70.2** |
+> | 14 | `mimo/mimo-v2.6-flash` | **69.8** |
+> | 15 | `mimo/mimo-v2.6-pro` | **69.6** |
+>
+> 33 cases · 2026-11-25
 > <!-- RANKING:END -->
 >
 > ### 📊 [Final v1.0 rankings (archived)](rankings/v1.0.md)
@@ -139,7 +155,7 @@ versions, so scores are not directly comparable.
 | Version | Cases | Released | Ranking |
 |---|---|---|---|
 | v1.0 | 31 | 2026-10-22 | [View](rankings/v1.0.md) |
-| v1.1 | 33 | Awaiting formal scores | [View](rankings/v1.1.md) |
+| v1.1 | 33 | 2026-11-26 | [View](rankings/v1.1.md) |
 
 Current config version: `1.1.0` (`bench.version` in `bench.config.jsonc`).
 

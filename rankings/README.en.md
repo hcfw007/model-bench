@@ -22,7 +22,7 @@ open a new version instead of editing historical tables in place.
 | Version | Cases | Released | Link |
 |---|---|---|---|
 | v1.0 | 31 | 2026-10-22 | [v1.0.md](v1.0.md) |
-| v1.1 | 33 | Awaiting formal scores | [v1.1.md](v1.1.md) |
+| v1.1 | 33 | 2026-11-26 | [v1.1.md](v1.1.md) |
 
 ## Adding a model
 
