@@ -6,6 +6,8 @@
   "description": "私人基准：基于真实 opencode 使用数据反向设计的模型/harness 测试集",
   "scripts": {
     "dry": "node runners/run-bench.ts --dry-run",
-    "bench": "node runners/run-bench.ts"
+    "bench": "node runners/run-bench.ts",
+    "test": "node --test --test-concurrency=4 \"test/*.test.ts\"",
+    "typecheck": "tsc -p tsconfig.test.json"
   }
 }

@@ -1,0 +1,27 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      # 运行时零依赖；typescript / @types/node 仅 CI 临时安装供 typecheck，不写入 package.json
+      - name: typecheck
+        run: |
+          npm install --no-save typescript@7 @types/node@24
+          npm run typecheck
+
+      - name: test
+        run: npm test
+
+      - name: dry-run self check
+        run: npm run dry
